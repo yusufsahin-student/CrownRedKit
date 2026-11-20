@@ -23,8 +23,10 @@ npm run verify
 Proje, Vercel üzerinde **Other** framework türüyle doğrudan yayınlanabilir. Gerekli ayarlar `vercel.json` içinde sürüm kontrolüne alınmıştır:
 
 - Build Command: `npm run build`
-- Output Directory: `dist`
+- Output Directory: `public`
 - Install Command: varsayılan ayar
+
+`npm run build`, doğrulanmış `dist` içeriğini temiz bir `public` klasörüne kopyalar. Kök dizinde Vercel Function olarak algılanabilecek bir sunucu giriş noktası bulunmaz; yerel geliştirme sunucusu `tools/local-server.mjs` altında tutulur.
 
 GitHub repository'sini Vercel'e bağladıktan sonra ek bir ortam değişkeni gerekmez. Her `main` branch güncellemesi yeni bir üretim dağıtımı başlatır.
 
