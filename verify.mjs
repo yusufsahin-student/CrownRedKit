@@ -54,6 +54,16 @@ assert.match(html, /id="multimeterPanel"/, "Etkileşimli multimetre paneli bulun
 assert.match(app, /updateCallouts\(\)/, "Açıklama çizgileri 3B hedefleri izlemelidir");
 assert.match(app, /cableBetween\(a,b,radius,color\)/, "Kablolar kesintisiz silindirik geometri kullanmalıdır");
 assert.match(app, /for\(let row=0;row<6;row\+\+\)for\(let col=0;col<14;col\+\+\)/, "Breadboard bağlantı delikleri modellenmelidir");
+assert.match(app, /gl\.depthMask\(true\)/, "X-ray etkisini önlemek için derinlik yazımı açık olmalıdır");
+assert.match(app, /gl\.cullFace\(gl\.BACK\)/, "Kapalı modellerde arka yüzler ayıklanmalıdır");
+assert.match(app, /this\.meshes=\{cube:this\.mesh\(cube\),cylinder:this\.mesh\(cyl\),sphere:this\.mesh\(sphere\)\}/, "Kubbeli bileşenler için küresel geometri bulunmalıdır");
+assert.match(app, /Math\.sin\(this\.rx\)<-\.04/, "Alt görünümde üst yüz etiketleri X-ray gibi görünmemelidir");
+for (const method of ["drawKitBase", "drawLedBank", "drawBreadboard", "drawUno", "drawControlDeck", "drawDisplay", "drawModules", "drawHighDetailModel"]) {
+  assert.match(app, new RegExp(`${method}\\(`), `${method} ayrıntılı model katmanı bulunmalıdır`);
+}
+assert.match(app, /segments=24/, "Yuvarlak parçalar yeterli çevresel çözünürlüğe sahip olmalıdır");
+assert.match(app, /lat=14,lon=24/, "LED ve buton kubbeleri yeterli yüzey çözünürlüğüne sahip olmalıdır");
+assert.doesNotMatch(html, />Temsili RED Kit modeli</, "Ana model temsili çizim olarak etiketlenmemelidir");
 assert.doesNotMatch(html, /Karta yükle/i, "Gerçek donanım olmadan karta yükleme sunulmamalı");
 
 console.log("✓ 10 görev ve veri yapısı");
@@ -68,4 +78,6 @@ console.log("✓ 360° × 360° model dönüşü");
 console.log("✓ Model üzerinde seçilebilir uçlar ve görünür 3B kablolar");
 console.log("✓ RED Kit breadboard, UNO, LCD ve kumanda geometrileri");
 console.log("✓ Kamerayı izleyen açıklama kartları ve multimetre araçları");
+console.log("✓ Derinlik tamponu, arka yüz ayıklama ve X-ray önleme");
+console.log("✓ Kubbeli LED, buton ve gösterge yüzeyleri");
 console.log("Canopy BioCore doğrulaması başarıyla tamamlandı.");

@@ -89,7 +89,7 @@ nav button.active {
   background: #fffaf0;
   color: var(--forest);
   box-shadow: 0 2px 6px rgba(16,42,34,.06);
-  font-size: .68rem;
+  font-size: .76rem;
   font-weight: 700;
 }
 .scene-tool:hover,
@@ -107,7 +107,7 @@ nav button.active {
 .callout-leaders circle:nth-of-type(4) { stroke: #168d79; }
 .model-callout {
   position: absolute;
-  width: min(184px, 28%);
+  width: min(205px, 30%);
   display: flex;
   gap: .58rem;
   padding: .68rem .72rem;
@@ -120,8 +120,8 @@ nav button.active {
 }
 .model-callout i { color: #ef642e; font-size: 1.05rem; font-style: normal; line-height: 1; }
 .model-callout div { display: grid; gap: .2rem; }
-.model-callout strong { font: 800 .67rem/1.1 Inter,"Segoe UI",sans-serif; text-transform: uppercase; letter-spacing: .035em; }
-.model-callout span { color: #756a5e; font-size: .59rem; line-height: 1.35; }
+.model-callout strong { font: 800 .78rem/1.1 Inter,"Segoe UI",sans-serif; text-transform: uppercase; letter-spacing: .035em; }
+.model-callout span { color: #756a5e; font-size: .7rem; line-height: 1.35; }
 .callout-digital { left: 10px; top: 12px; }
 .callout-usb { left: 10px; top: 46%; }
 .callout-controller { right: 10px; top: 12px; }
