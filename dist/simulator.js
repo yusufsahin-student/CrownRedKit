@@ -42,7 +42,14 @@ export function normalizeConnection(a, b) {
 export function checkConnections(mission, connections) {
   const actual = new Set(connections.map(([a, b]) => normalizeConnection(a, b)));
   const missing = mission.connections.filter(([a, b]) => !actual.has(normalizeConnection(a, b)));
-  return { ok: missing.length === 0, missing };
+  const expected=new Set(mission.connections.map(([a,b])=>normalizeConnection(a,b)));
+  const unexpected=connections.filter(([a,b])=>!expected.has(normalizeConnection(a,b)));
+  // A conductive path from the supply rail to ground is a short, even through several wires.
+  const graph=new Map();
+  for(const [a,b] of connections){if(!graph.has(a))graph.set(a,new Set());if(!graph.has(b))graph.set(b,new Set());graph.get(a).add(b);graph.get(b).add(a);}
+  const seen=new Set(),queue=['5V'];while(queue.length){const pin=queue.pop();if(seen.has(pin))continue;seen.add(pin);for(const next of graph.get(pin)||[])queue.push(next);}
+  const shortCircuit=seen.has('GND');
+  return { ok: missing.length===0&&unexpected.length===0&&!shortCircuit, missing, unexpected, shortCircuit };
 }
 
 export function computeFrame({ mission, env, program, previous, elapsed }) {

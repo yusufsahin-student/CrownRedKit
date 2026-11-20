@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import './tools/verify-execution.mjs';
+import './tools/verify-renderer.mjs';
 import { readFile } from "node:fs/promises";
 import { missions } from "./dist/missions.js";
 import { parseProgram, checkConnections, computeFrame, runMissionTests } from "./dist/simulator.js";

@@ -24,7 +24,7 @@
       <button data-nav="journal">Doğa Günlüğüm</button>
     </nav>
     <div class="top-actions">
-      <button id="motionToggle" class="icon-btn" aria-pressed="false" title="Hareketi azalt">◌</button>
+      <button id="motionToggle" class="icon-btn" aria-pressed="false" title="Hareketi azalt" aria-label="Animasyonları azalt">◌</button>
       <span id="progressPill" class="progress-pill">0 / 10</span>
     </div>
   </header>
@@ -80,7 +80,7 @@
       </div>
       <div class="lab-grid">
         <aside class="panel story-panel">
-          <div class="panel-title"><span>GÖREV BRİFİNGİ</span><button class="collapse" aria-label="Paneli daralt">−</button></div>
+          <div class="panel-title"><span>GÖREV BRİFİNGİ</span></div>
           <p id="missionStory"></p>
           <dl class="mission-meta"><div><dt>Zorluk</dt><dd id="missionDifficulty"></dd></div><div><dt>Süre</dt><dd id="missionMinutes"></dd></div></dl>
           <h3>Öğrenme hedefi</h3><p id="missionSkill"></p>
@@ -98,7 +98,7 @@
             <button id="clearWires" class="scene-tool">Kabloları sök</button>
             <button id="multimeterToggle" class="scene-tool" aria-pressed="false">Multimetre</button>
           </div>
-          <div class="scene-header"><div><span id="connectionStatus" class="status warn">Devre eksik</span><small>Bağlantılar davranışı doğrudan etkiler</small></div><div><button id="resetCamera" class="icon-btn" title="Kamerayı sıfırla">⌂</button><button id="topView" class="icon-btn" title="Üstten görünüm">▣</button></div></div>
+          <div class="scene-header"><div><span id="connectionStatus" class="status warn">Devre eksik</span><small>Bağlantılar davranışı doğrudan etkiler</small></div><div><button id="resetCamera" class="icon-btn" title="Kamerayı sıfırla">Görünüm</button><button id="topView" class="icon-btn" title="Üstten görünüm">Üstten</button></div></div>
           <div class="scene-wrap">
             <canvas id="labCanvas" aria-label="Etkileşimli temsili RED Kit çalışma alanı"></canvas>
             <div id="fallbackBoard" class="fallback-board" hidden aria-label="Erişilebilir 2D RED Kit şeması">
@@ -117,10 +117,10 @@
                 <circle data-callout-dot="digital" r="4"></circle><circle data-callout-dot="usb" r="4"></circle>
                 <circle data-callout-dot="controller" r="4"></circle><circle data-callout-dot="power" r="4"></circle>
               </svg>
-              <article class="model-callout callout-digital" data-callout="digital"><i>▥</i><div><strong>Dijital pinler</strong><span>D0–D13: giriş, çıkış ve PWM sinyalleri.</span></div></article>
-              <article class="model-callout callout-usb" data-callout="usb"><i>▭</i><div><strong>USB</strong><span>Kodu bilgisayardan yükler ve kartı besler.</span></div></article>
-              <article class="model-callout callout-controller" data-callout="controller"><i>▦</i><div><strong>ATmega328P</strong><span>16 MHz denetleyici; devrenin karar merkezi.</span></div></article>
-              <article class="model-callout callout-power" data-callout="power"><i>⌁</i><div><strong>Güç ve analog</strong><span>5V, 3.3V, GND ve A0–A5 ölçüm uçları.</span></div></article>
+              <article class="model-callout callout-digital" data-callout="digital"><i aria-hidden="true">D</i><div><strong>Dijital pinler</strong><span>D0–D13: giriş, çıkış ve PWM sinyalleri.</span></div></article>
+              <article class="model-callout callout-usb" data-callout="usb"><i aria-hidden="true">USB</i><div><strong>USB</strong><span>Kodu bilgisayardan yükler ve kartı besler.</span></div></article>
+              <article class="model-callout callout-controller" data-callout="controller"><i aria-hidden="true">IC</i><div><strong>ATmega328P</strong><span>16 MHz denetleyici; devrenin karar merkezi.</span></div></article>
+              <article class="model-callout callout-power" data-callout="power"><i aria-hidden="true">V</i><div><strong>Güç ve analog</strong><span>5V, 3.3V, GND ve A0–A5 ölçüm uçları.</span></div></article>
             </div>
             <div id="multimeterPanel" class="multimeter-panel" hidden>
               <span>MULTİMETRE · DC</span><strong id="multimeterValue">5.00 V</strong><small id="multimeterHint">5V ↔ GND ölçümü</small>
@@ -131,7 +131,7 @@
               <span><i style="background:#4f7d48"></i>Sensör / çıkış alanı</span>
               <span id="modelHint"><i style="background:#2f82b7"></i>Model üzerindeki iki uca tıklayarak bağla</span>
             </div>
-            <div class="scene-readouts"><span>LED <b id="ledState">KAPALI</b></span><span>FAN <b id="fanState">KAPALI</b></span><span>GEÇİŞ <b id="countState">0</b></span></div>
+            <div class="scene-readouts"><span>LED <b id="ledState">KAPALI</b></span><span>FAN <b id="fanState">KAPALI</b></span><span>GEÇİŞ <b id="countState">0</b></span><span class="signal-note">Hareketli nokta: mantıksal sinyal</span></div>
           </div>
           <div class="wire-builder">
             <label>Başlangıç ucu<select id="pinA"></select></label><span>—</span><label>Hedef uç<select id="pinB"></select></label><button id="addWire" class="primary">Bağla</button><button id="undoWire" class="secondary">Geri Al</button>
@@ -140,7 +140,7 @@
         </section>
 
         <aside class="panel controls-panel">
-          <div class="panel-title"><span>ORTAM KONTROLLERİ</span><button class="collapse" aria-label="Paneli daralt">−</button></div>
+          <div class="panel-title"><span>ORTAM KONTROLLERİ</span></div>
           <label class="range-row"><span><b>Ortam ışığı</b><output id="lightOutput">62%</output></span><input id="lightRange" type="range" min="0" max="100" value="62"></label>
           <label class="range-row"><span><b>Sıcaklık</b><output id="tempOutput">24.0 °C</output></span><input id="tempRange" type="range" min="5" max="45" step="0.5" value="24"></label>
           <label class="range-row"><span><b>Mesafe</b><output id="distanceOutput">80 cm</output></span><input id="distanceRange" type="range" min="5" max="150" value="80"></label>
@@ -149,6 +149,11 @@
         </aside>
 
         <section class="code-panel">
+          <div class="execution-toolbar"><strong>Canlı kod akışı</strong><span id="executionClock">0 ms</span><label>Hız <select id="executionSpeed"><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label><button id="restartExecution" class="secondary">Yürütmeyi sıfırla</button></div>
+          <div class="execution-panel">
+            <div id="executionCode" class="execution-code" aria-label="Yürütülen kod ve etkin satır"></div>
+            <div class="execution-detail"><p id="executionStatus" role="status">Devreni bağla, ardından Çalıştır veya Adım seç.</p><div class="flow-stages" aria-label="Kod akışı"><span data-flow="compute">Oku / hesapla</span><span data-flow="output">Çıkışı değiştir</span><span data-flow="wait">Bekle</span><span data-flow="serial">Seri çıktı</span></div><output id="flowReadout">LED LOW · Fan KAPALI</output><canvas id="signalTrace" class="signal-trace" aria-label="LED çıkışının zamana göre HIGH ve LOW durumu"></canvas><div id="variableWatch" class="variable-watch" aria-label="Değişken değerleri"></div><small>Vurgulanan satır gerçekten yürütülür. Adım, bekleme süresini ilerletir. Desteklenen eğitim kodları: değişkenler, if/else, loop, digitalWrite, delay ve sensör okumaları.</small></div>
+          </div>
           <div class="code-tabs"><button class="active" data-code-tab="editor">Kod Editörü</button><button data-code-tab="serial">Seri Monitör</button><button data-code-tab="tests">Test Sonuçları</button><span>Eğitim amaçlı güvenli yorumlayıcı</span></div>
           <div id="editorPane" class="code-pane active"><div class="line-numbers" id="lineNumbers"></div><textarea id="codeEditor" spellcheck="false" aria-label="Arduino görünümünde kod editörü"></textarea></div>
           <pre id="serialPane" class="code-pane terminal" aria-live="polite"></pre>

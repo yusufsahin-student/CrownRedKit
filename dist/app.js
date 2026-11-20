@@ -1,5 +1,6 @@
 import { missions, missionById } from "./missions.js";
 import { SurfaceArt, paintKitArtwork } from "./surface-art.js";
+import { compileSketch, SketchRuntime } from "./execution.js";
 import { hardware, allPins, HARDWARE_NOTICE } from "./hardware.js";
 import { parseProgram, checkConnections, computeFrame, runMissionTests } from "./simulator.js";
 
@@ -16,6 +17,10 @@ const state = {
   code: saved.code || {},
   env: { light: 62, temperature: 24, distance: 80 },
   running: false,
+  runtime: null,
+  speed: 1,
+  traceKey: '',
+  wireAnimations: new Map(),
   startTime: performance.now(),
   hint: 0,
   view3d: true,
@@ -84,6 +89,10 @@ function loadMission() {
   state.hint = 0;
   state.pendingPin = null;
   state.running = false;
+  state.runtime = null;
+  $("#executionCode").replaceChildren();$("#variableWatch").replaceChildren();
+  $("#executionStatus").textContent="Devreni bağla, ardından Çalıştır veya Adım seç.";
+  $("#executionClock").textContent="0 ms";
   state.sim = { led: false, fan: false, count: 0, wasInside: false, tankLevel: 20, wired: false };
   $("#labTitle").textContent = m.title;
   $("#missionStory").textContent = m.story;
@@ -104,22 +113,23 @@ function loadMission() {
 }
 
 function renderWires() {
-  const wires = currentConnections();
-  $("#wireList").innerHTML = wires.length ? wires.map(([a, b]) => `<span class="wire">${a} — ${b}</span>`).join("") : '<span class="wire">Henüz bağlantı yok</span>';
-  const result = checkConnections(currentMission(), wires);
-  state.sim.wired = result.ok;
-  const label = $("#connectionStatus");
-  label.className = `status ${result.ok ? "ok" : "warn"}`;
-  label.textContent = result.ok ? "Devre hazır" : `${result.missing.length} bağlantı eksik`;
+  const wires=currentConnections(),result=checkConnections(currentMission(),wires);
+  state.sim.wired=result.ok;
+  if(!result.ok){state.running=false;state.sim.led=false;state.sim.fan=false;updateOutputs();}
+  const list=$("#wireList");list.replaceChildren();
+  wires.forEach(([a,b],index)=>{const button=document.createElement('button');button.className='wire'+(result.unexpected.some(pair=>pair.includes(a)&&pair.includes(b))?' invalid':'');button.textContent=`${a} — ${b} · Sök`;button.setAttribute('aria-label',`${a} ile ${b} arasındaki kabloyu sök`);button.addEventListener('click',()=>{currentConnections().splice(index,1);state.pendingPin=null;persist();renderWires();});list.append(button);});
+  if(!wires.length)list.textContent='Henüz kablo yok. Modelde iki ucu seç veya aşağıdaki listeleri kullan.';
+  const label=$("#connectionStatus");label.className=`status ${result.ok?'ok':'warn'}`;
+  label.textContent=result.shortCircuit?'Kısa devre: 5V ile GND bağlı':result.unexpected.length?`${result.unexpected.length} görev dışı / hatalı bağlantı`:result.ok?'Devre hazır':`${result.missing.length} bağlantı eksik`;
+  $$('#connectionGuide li').forEach((row,i)=>{const pair=currentMission().connections[i],done=wires.some(w=>w.includes(pair[0])&&w.includes(pair[1]));row.classList.toggle('done',done);row.classList.toggle('next',!done&&result.missing[0]===pair);});
   updateMultimeter();
 }
 
 function updateMultimeter() {
-  const value = $("#multimeterValue"), hint = $("#multimeterHint");
-  if (!value || !hint) return;
-  const powered = currentConnections().some((wire) => wire.includes("5V")) && currentConnections().some((wire) => wire.includes("GND"));
-  value.textContent = powered ? `${(4.96 + state.env.light / 2500).toFixed(2)} V` : "0.00 V";
-  hint.textContent = powered ? "Devre beslemesi · 5V ↔ GND" : "Ölçüm için 5V ve GND bağla";
+  const value=$("#multimeterValue"),hint=$("#multimeterHint");if(!value||!hint)return;
+  const result=checkConnections(currentMission(),currentConnections());
+  value.textContent=result.shortCircuit?'KISA DEVRE':'5.00 V';
+  hint.textContent=result.shortCircuit?'Besleme–toprak yolunu sök.':'5V / GND · ideal kaynak modeli';
 }
 
 function addWire() {
@@ -166,36 +176,73 @@ function compile() {
   const code = $("#codeEditor").value;
   state.code[state.missionId] = code; persist();
   const program = parseProgram(code);
+  const sketch=compileSketch(code);
+  if(!sketch.ok){toast(sketch.error);return sketch;}
   if (!program.ok) { toast(program.error); state.serial.push(`[HATA] ${program.error}`); renderSerial(); }
   return program;
 }
 
 function checkCircuit(showToast = true) {
   const result = checkConnections(currentMission(), currentConnections());
+  if(result.shortCircuit||result.unexpected.length){if(showToast)toast(result.shortCircuit?'5V ile GND arasında kısa devre var.':'Görev dışı bağlantıları söküp rehberdeki uçları kullan.');renderWires();return false;}
   if (showToast) toast(result.ok ? "Devre doğrulandı; tüm gerekli sanal bağlantılar hazır." : `Eksik: ${result.missing.map((x) => x.join("—")).join(", ")}`);
   renderWires(); return result.ok;
 }
 
+function prepareRuntime() {
+  const code=$("#codeEditor").value;
+  state.code[state.missionId]=code;persist();
+  if(state.runtime?.program.source===code)return true;
+  const program=compileSketch(code);
+  if(!program.ok){toast(program.error);$("#executionStatus").textContent=program.error;return false;}
+  state.runtime=new SketchRuntime(program);state.traceKey='';
+  state.signalHistory=[];
+  const trace=$("#executionCode");trace.replaceChildren();
+  code.split("\n").forEach((line,i)=>{const row=document.createElement('div');row.dataset.line=i+1;const number=document.createElement('span');number.textContent=i+1;const text=document.createElement('code');text.textContent=line||' ';row.append(number,text);trace.append(row);});
+  return true;
+}
 function run() {
-  const program = compile();
-  if (!program.ok) return;
-  if (!checkCircuit(false)) { toast("Kod çalışmadı: önce gerekli sanal bağlantıları tamamla."); return; }
-  state.running = true; state.startTime = performance.now();
-  state.serial.push(`[BAŞLAT] Görev ${state.missionId}: ${currentMission().title}`);
-  toast("Simülasyon çalışıyor.");
+  if(!checkCircuit(false)||!prepareRuntime()){if(!state.sim.wired)toast("Önce devrenin eksik veya hatalı bağlantılarını düzelt.");return;}
+  state.running=true;loop.lastTick=performance.now();loop.accumulator=0;
+  $("#executionStatus").textContent="Çalışıyor";
 }
-
-function stop() { state.running = false; state.serial.push("[DURDUR] Simülasyon durduruldu."); renderSerial(); }
-
-function stepSimulation() {
-  const program = compile(); if (!program.ok) return;
-  state.sim.wired = checkConnections(currentMission(), currentConnections()).ok;
-  state.sim = computeFrame({ mission: currentMission(), env: state.env, program, previous: state.sim, elapsed: performance.now() - state.startTime });
+function stop() {
+  state.running=false;$("#executionStatus").textContent="Duraklatıldı";
+}
+function publishExecution(event) {
+  if(state.lastRenderedEvent===event){$("#executionClock").textContent=`${Math.round(state.runtime.time)} ms · ${Math.round(state.runtime.wait)} ms bekleme`;return;}
+  state.lastRenderedEvent=event;
+  state.sim=state.runtime.frame(state.sim,checkConnections(currentMission(),currentConnections()).ok);
   updateOutputs();
-  state.serial.push(`[ADIM] ${state.sim.serialValue} · LED=${state.sim.led ? "AÇIK" : "KAPALI"} · FAN=${state.sim.fan ? "AÇIK" : "KAPALI"}`);
-  renderSerial();
+  $("#executionStatus").textContent=event.detail;
+  state.signalHistory.push({time:state.runtime.time,high:state.sim.led});state.signalHistory=state.signalHistory.slice(-160);drawSignalTrace();
+  $("#executionClock").textContent=`${Math.round(state.runtime.time)} ms · döngü ${state.runtime.cycles}`;
+  $("#flowReadout").textContent=`LED ${state.sim.led?'HIGH':'LOW'} · Fan ${state.sim.fan?'AÇIK':'KAPALI'}`;
+  $$('[data-flow]').forEach(node=>node.classList.toggle('active',node.dataset.flow===(event.kind==='output'?'output':event.kind==='wait'?'wait':event.kind==='serial'?'serial':'compute')));
+  const active=$(`[data-line="${event.line}"]`,$("#executionCode"));
+  $$('#executionCode .executing').forEach(row=>row.classList.remove('executing'));
+  if(active){active.classList.add('executing');const panel=$("#executionCode");if(active.offsetTop<panel.scrollTop||active.offsetTop+active.offsetHeight>panel.scrollTop+panel.clientHeight)panel.scrollTop=active.offsetTop-panel.clientHeight/2;}
+  $("#variableWatch").replaceChildren();
+  Object.entries(state.runtime.vars).forEach(([name,value])=>{const chip=document.createElement('span');chip.textContent=`${name}: ${value}`;$("#variableWatch").append(chip);});
+  if(state.runtime.events.length){state.serial.push(...state.runtime.events.splice(0).map(value=>`[${Math.round(state.runtime.time)} ms] ${value}`));state.serial=state.serial.slice(-120);renderSerial();}
 }
-
+function stepSimulation() {
+  stop();if(!checkCircuit(false)){toast("Adım için devre bağlantılarını tamamla.");return;}
+  if(!prepareRuntime())return;
+  try{publishExecution(state.runtime.step(state.env));}catch(error){$("#executionStatus").textContent=error.message;toast(error.message);state.runtime=null;}
+}
+function drawSignalTrace(){
+  const canvas=$("#signalTrace"),ctx=canvas.getContext('2d'),w=canvas.clientWidth||400,h=100,dpr=Math.min(2,devicePixelRatio||1);
+  canvas.width=Math.round(w*dpr);canvas.height=h*dpr;ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);
+  const samples=state.signalHistory||[];if(!samples.length)return;
+  const first=samples[0].time,last=Math.max(first+1,samples.at(-1).time);
+  ctx.font='12px Consolas, monospace';ctx.fillStyle='#afc8ba';ctx.fillText('HIGH',4,22);ctx.fillText('LOW',4,69);
+  ctx.strokeStyle='#3a5145';for(const y of [18,65]){ctx.beginPath();ctx.moveTo(46,y);ctx.lineTo(w-10,y);ctx.stroke();}
+  const x=time=>46+(time-first)/(last-first)*Math.max(1,w-60),y=high=>high?18:65;
+  ctx.strokeStyle='#c4eb94';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x(first),y(samples[0].high));
+  for(let i=1;i<samples.length;i++){ctx.lineTo(x(samples[i].time),y(samples[i-1].high));ctx.lineTo(x(samples[i].time),y(samples[i].high));}ctx.stroke();
+  ctx.fillText(`${Math.round(first)} ms`,46,92);ctx.textAlign='right';ctx.fillText(`${Math.round(last)} ms`,w-10,92);
+}
 function updateOutputs() {
   $("#ledState").textContent = state.sim.led ? "AÇIK" : "KAPALI";
   $("#ledState").style.color = state.sim.led ? "#bde881" : "#a7aaa8";
@@ -328,10 +375,10 @@ class DetailedKitRenderer {
     c.addEventListener("wheel",e=>{e.preventDefault();this.zoom=Math.max(this.focus?1.8:4.2,Math.min(10,this.zoom+e.deltaY*.004))},{passive:false})
   }
   mul(A,B){const O=new Array(16).fill(0);for(let r=0;r<4;r++)for(let c=0;c<4;c++)for(let k=0;k<4;k++)O[c*4+r]+=A[k*4+r]*B[c*4+k];return O}
-  scene(){const a=this.rx,b=this.ry,ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b),aspect=Math.max(.2,this.canvas.width/this.canvas.height),f=1/Math.tan(.48),near=.1,far=40,rx=[1,0,0,0,0,ca,sa,0,0,-sa,ca,0,0,0,0,1],ry=[cb,0,-sb,0,0,1,0,0,sb,0,cb,0,0,0,0,1],view=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,-this.zoom,1],proj=[f/aspect,0,0,0,0,f,0,0,0,0,(far+near)/(near-far),-1,0,0,(2*far*near)/(near-far),0];return this.mul(proj,this.mul(view,this.mul(rx,this.mul(ry,[1,0,0,0,0,1,0,0,0,0,1,0,-(this.focus?.[0]||0)*this.scale,-(this.focus?.[1]||0)*this.scale,-(this.focus?.[2]||0)*this.scale,1]))))}
+  scene(){const a=this.rx,b=this.ry,ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b),aspect=Math.max(.2,this.canvas.width/this.canvas.height),f=1/Math.tan(.48),near=.1,far=40,rx=[1,0,0,0,0,ca,-sa,0,0,sa,ca,0,0,0,0,1],ry=[cb,0,-sb,0,0,1,0,0,sb,0,cb,0,0,0,0,1],view=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,-this.zoom,1],proj=[f/aspect,0,0,0,0,f,0,0,0,0,(far+near)/(near-far),-1,0,0,(2*far*near)/(near-far),0];return this.mul(proj,this.mul(view,this.mul(rx,this.mul(ry,[1,0,0,0,0,1,0,0,0,0,1,0,-(this.focus?.[0]||0)*this.scale,-(this.focus?.[1]||0)*this.scale,-(this.focus?.[2]||0)*this.scale,1]))))}
   matrix(x,y,z,sx,sy,sz){const t=[1,0,0,0,0,1,0,0,0,0,1,0,x,y,z,1],s=[sx,0,0,0,0,sy,0,0,0,0,sz,0,0,0,0,1];return new Float32Array(this.mul(this.scene(),this.mul(t,s)))}
-  rotation(){const a=this.rx,b=this.ry,ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b);return new Float32Array([cb,sa*sb,-ca*sb,0,ca,sa,sb,-sa*cb,ca*cb])}
-  part(mesh,x,y,z,sx,sy,sz,color,id=""){const gl=this.gl,obj=this.meshes[mesh],boost=this.selected===id?.22:0,metal=/usb|power|silver|lcd-frame/.test(id);gl.bindBuffer(gl.ARRAY_BUFFER,obj.buffer);gl.enableVertexAttribArray(this.locP);gl.vertexAttribPointer(this.locP,3,gl.FLOAT,false,24,0);gl.enableVertexAttribArray(this.locN);gl.vertexAttribPointer(this.locN,3,gl.FLOAT,false,24,12);gl.uniformMatrix4fv(this.locM,false,this.matrix(x*this.scale,y*this.scale,z*this.scale,sx*this.scale,sy*this.scale,sz*this.scale));const normal=this.rotation();for(let i=0;i<9;i++)normal[i]/=[sx,sy,sz][Math.floor(i/3)];gl.uniformMatrix3fv(this.locR,false,normal);gl.uniform4fv(this.locC,[Math.min(1,color[0]+boost),Math.min(1,color[1]+boost),Math.min(1,color[2]+boost),1]);gl.uniform1f(this.locShine,metal?.9:.24);gl.drawArrays(gl.TRIANGLES,0,obj.count)}
+  rotation(){const a=this.rx,b=this.ry,ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b);return new Float32Array([cb,-sa*sb,-ca*sb,0,ca,-sa,sb,sa*cb,ca*cb])}
+  part(mesh,x,y,z,sx,sy,sz,color,id=""){if(this.captureBounds&&mesh==="cube"&&sx*sy*sz>.00008)this.solidBounds.push([x-sx,y-sy,z-sz,x+sx,y+sy,z+sz]);const gl=this.gl,obj=this.meshes[mesh],boost=this.selected===id?.22:0,metal=/usb|power|silver|lcd-frame/.test(id);gl.bindBuffer(gl.ARRAY_BUFFER,obj.buffer);gl.enableVertexAttribArray(this.locP);gl.vertexAttribPointer(this.locP,3,gl.FLOAT,false,24,0);gl.enableVertexAttribArray(this.locN);gl.vertexAttribPointer(this.locN,3,gl.FLOAT,false,24,12);gl.uniformMatrix4fv(this.locM,false,this.matrix(x*this.scale,y*this.scale,z*this.scale,sx*this.scale,sy*this.scale,sz*this.scale));const normal=this.rotation();for(let i=0;i<9;i++)normal[i]/=[sx,sy,sz][Math.floor(i/3)];gl.uniformMatrix3fv(this.locR,false,normal);gl.uniform4fv(this.locC,[Math.min(1,color[0]+boost),Math.min(1,color[1]+boost),Math.min(1,color[2]+boost),1]);gl.uniform1f(this.locShine,metal?.9:.24);gl.drawArrays(gl.TRIANGLES,0,obj.count)}
   box(...a){this.part("cube",...a)} cylinder(...a){this.part("cylinder",...a)} sphere(...a){this.part("sphere",...a)}
   cableBetween(a,b,radius,color){
     const ax=a[0]*this.scale,ay=a[1]*this.scale,az=a[2]*this.scale,bx=b[0]*this.scale,by=b[1]*this.scale,bz=b[2]*this.scale,dx=bx-ax,dy=by-ay,dz=bz-az,len=Math.hypot(dx,dy,dz);if(!len)return;
@@ -340,22 +387,52 @@ class DetailedKitRenderer {
     gl.bindBuffer(gl.ARRAY_BUFFER,obj.buffer);gl.enableVertexAttribArray(this.locP);gl.vertexAttribPointer(this.locP,3,gl.FLOAT,false,24,0);gl.enableVertexAttribArray(this.locN);gl.vertexAttribPointer(this.locN,3,gl.FLOAT,false,24,12);gl.uniformMatrix4fv(this.locM,false,new Float32Array(this.mul(this.scene(),model)));gl.uniformMatrix3fv(this.locR,false,this.rotation());gl.uniform4fv(this.locC,[...color,1]);gl.uniform1f(this.locShine,.48);gl.drawArrays(gl.TRIANGLES,0,obj.count);
   }
   project(point){const m=this.scene(),x=point[0]*this.scale,y=point[1]*this.scale,z=point[2]*this.scale,cx=m[0]*x+m[4]*y+m[8]*z+m[12],cy=m[1]*x+m[5]*y+m[9]*z+m[13],cw=m[3]*x+m[7]*y+m[11]*z+m[15],rect=this.canvas.getBoundingClientRect();return[(cx/cw*.5+.5)*rect.width,(-cy/cw*.5+.5)*rect.height]}
-  hitPin(event){if(Math.sin(this.rx)>=-.04)return toast("Bağlantı uçları kartın üst yüzündedir; modeli üstten çevir.");const rect=this.canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;let best=null,bestDistance=26;for(const [pin,point] of Object.entries(this.pinPoints)){const p=this.project(point),d=Math.hypot(x-p[0],y-p[1]);if(d<bestDistance){bestDistance=d;best=pin}}if(best)handleModelPin(best);else toast("Bir bağlantı ucuna daha yakın tıkla.")}
+  hitPin(event){if(Math.sin(this.rx)>=-.04)return toast("Bağlantı uçları kartın üst yüzündedir; modeli üstten çevir.");const rect=this.canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;let best=null,bestDistance=26;for(const [pin,point] of Object.entries(this.pinPoints)){if(!this.pointVisible(point))continue;const p=this.project(point),d=Math.hypot(x-p[0],y-p[1]);if(d<bestDistance){bestDistance=d;best=pin}}if(best)handleModelPin(best);else toast("Bir bağlantı ucuna daha yakın tıkla.")}
   drawConnections(){
-    const colors=[[.9,.16,.12],[.12,.52,.86],[.93,.62,.08],[.18,.7,.34],[.66,.25,.82],[.95,.38,.1],[.2,.76,.72],[.76,.18,.4],[.48,.7,.12]];
-    currentConnections().forEach(([a,b],wireIndex)=>{const p0=this.pinPoints[a],p1=this.pinPoints[b];if(!p0||!p1)return;const height=Math.max(p0[1],p1[1])+.52+(wireIndex%3)*.08,color=colors[wireIndex%colors.length],segments=28,points=[];for(let i=0;i<=segments;i++){const t=i/segments,u=1-t;points.push([u*u*p0[0]+2*u*t*((p0[0]+p1[0])/2)+t*t*p1[0],u*u*p0[1]+2*u*t*height+t*t*p1[1],u*u*p0[2]+2*u*t*((p0[2]+p1[2])/2)+t*t*p1[2]])}for(let i=1;i<points.length;i++)this.cableBetween(points[i-1],points[i],.035,color)});
-    for(const [pin,point] of Object.entries(this.pinPoints)){const active=state.pendingPin===pin;this.cylinder(point[0],point[1],point[2],active?.075:.045,active?.1:.065,active?.075:.045,active?[.1,.65,1]:[.9,.66,.16])}
+    const colors=[[.85,.16,.12],[.15,.48,.82],[.92,.66,.08],[.2,.65,.36],[.6,.3,.8]];
+    const now=performance.now(),live=new Set();
+    currentConnections().forEach(([a,b],index)=>{
+      const start=this.pinPoints[a],end=this.pinPoints[b];if(!start||!end)return;
+      const key=[a,b].sort().join('::');live.add(key);if(!state.wireAnimations.has(key))state.wireAnimations.set(key,now);
+      const reveal=state.motionReduced?1:Math.min(1,(now-state.wireAnimations.get(key))/450);
+      const color=a==='GND'||b==='GND'?[.18,.2,.23]:a==='5V'||b==='5V'?[.86,.12,.1]:colors[index%colors.length];
+      const height=Math.max(start[1],end[1],.8)+.35+(index%4)*.11;
+      const point=t=>{const u=1-t;return[u*u*u*start[0]+3*u*u*t*start[0]+3*u*t*t*end[0]+t*t*t*end[0],u*u*u*start[1]+3*u*u*t*height+3*u*t*t*height+t*t*t*end[1],u*u*u*start[2]+3*u*u*t*start[2]+3*u*t*t*end[2]+t*t*t*end[2]];};
+      for(let i=1;i<=36;i++){const t=Math.min(i/36,reveal),previous=Math.min((i-1)/36,reveal);if(t<=previous)break;this.cableBetween(point(previous),point(t),.024,color);}
+      for(const p of [start,end]){this.box(p[0],p[1]+.055,p[2],.04,.06,.04,[.08,.09,.1]);this.cylinder(p[0],p[1]-.025,p[2],.012,.025,.012,[.8,.64,.24]);}
+      const active=state.running&&state.sim.wired&&((a==='LED+'||b==='LED+')&&state.sim.led||(a==='M-IN'||b==='M-IN')&&state.sim.fan);
+      if(active&&!state.motionReduced&&reveal===1){const p=point((now%1400)/1400);this.sphere(...p,.045,.045,.045,[.9,1,.45]);}
+    });
+    for(const key of state.wireAnimations.keys())if(!live.has(key))state.wireAnimations.delete(key);
+    for(const [pin,p] of Object.entries(this.pinPoints)){
+      const active=state.pendingPin===pin;this.cylinder(p[0],p[1],p[2],active?.055:.025,.014,active?.055:.025,active?[.1,.7,1]:[.8,.61,.2]);
+    }
   }
   updatePinLabels(){
     const overlay=$("#pinOverlay");if(!overlay)return;const topVisible=Math.sin(this.rx)<-.04;overlay.hidden=!state.showLabels||!topVisible;if(!state.showLabels||!topVisible)return;const pins=[...new Set(currentMission().connections.flat())],signature=`${state.missionId}:${pins.join("|")}`;
     if(overlay.dataset.signature!==signature){overlay.dataset.signature=signature;overlay.innerHTML=pins.map(pin=>`<span class="pin-label" data-pin-label="${pin}">${pin}</span>`).join("")}
-    $$('[data-pin-label]',overlay).forEach(label=>{const point=this.pinPoints[label.dataset.pinLabel];if(!point)return;const [x,y]=this.project(point);label.style.left=`${x}px`;label.style.top=`${y}px`;label.classList.toggle("selected",state.pendingPin===label.dataset.pinLabel)});
+    $$('[data-pin-label]',overlay).forEach(label=>{const point=this.pinPoints[label.dataset.pinLabel];if(!point)return;label.hidden=!this.pointVisible(point);const [x,y]=this.project(point);label.style.left=`${x}px`;label.style.top=`${y}px`;label.classList.toggle("selected",state.pendingPin===label.dataset.pinLabel)});
+  }
+  pointVisible(point){
+    if(Math.sin(this.rx)>=-.04)return false;
+    const distance=this.zoom/this.scale,focus=this.focus||[0,0,0];
+    const eye=[focus[0]-Math.sin(this.ry)*Math.cos(this.rx)*distance,focus[1]-Math.sin(this.rx)*distance,focus[2]+Math.cos(this.ry)*Math.cos(this.rx)*distance];
+    const direction=point.map((v,i)=>v-eye[i]),length=Math.hypot(...direction);
+    for(const box of this.solidBounds||[]){
+      let near=0,far=1;
+      for(let axis=0;axis<3;axis++){
+        if(Math.abs(direction[axis])<1e-9){if(eye[axis]<box[axis]||eye[axis]>box[axis+3]){near=2;break;}continue;}
+        const a=(box[axis]-eye[axis])/direction[axis],b=(box[axis+3]-eye[axis])/direction[axis];near=Math.max(near,Math.min(a,b));far=Math.min(far,Math.max(a,b));
+      }
+      if(near<=far&&near<1-.09/length&&far>0)return false;
+    }
+    const [x,y]=this.project(point),rect=this.canvas.getBoundingClientRect();return x>=0&&x<=rect.width&&y>=0&&y<=rect.height;
   }
   updateCallouts(){
     const layer=$("#modelCallouts"),svg=$("#calloutLeaders");if(!layer||!svg)return;const topVisible=Math.sin(this.rx)<-.04;layer.hidden=!state.showCallouts||!topVisible;if(!state.showCallouts||!topVisible)return;
     const targets={digital:[.78,.51,-1.22],usb:[1.94,.45,-.69],controller:[.82,.49,-.66],power:[1.34,.51,-.08]},wrap=this.canvas.getBoundingClientRect();
     svg.setAttribute("viewBox",`0 0 ${wrap.width} ${wrap.height}`);
-    Object.entries(targets).forEach(([name,point])=>{const card=$(`[data-callout="${name}"]`,layer),line=$(`[data-callout-line="${name}"]`,svg),dot=$(`[data-callout-dot="${name}"]`,svg);if(!card||!line||!dot)return;const rect=card.getBoundingClientRect(),[x,y]=this.project(point),cx=rect.left-wrap.left+rect.width/2,cy=rect.top-wrap.top+rect.height/2;line.setAttribute("x1",cx);line.setAttribute("y1",cy);line.setAttribute("x2",x);line.setAttribute("y2",y);dot.setAttribute("cx",x);dot.setAttribute("cy",y)});
+    Object.entries(targets).forEach(([name,point])=>{const card=$(`[data-callout="${name}"]`,layer),line=$(`[data-callout-line="${name}"]`,svg),dot=$(`[data-callout-dot="${name}"]`,svg);if(!card||!line||!dot)return;const visible=this.pointVisible(point);card.hidden=!visible;line.style.display=dot.style.display=visible?"":"none";if(!visible)return;const rect=card.getBoundingClientRect(),[x,y]=this.project(point),cx=rect.left-wrap.left+rect.width/2,cy=rect.top-wrap.top+rect.height/2;line.setAttribute("x1",cx);line.setAttribute("y1",cy);line.setAttribute("x2",x);line.setAttribute("y2",y);dot.setAttribute("cx",x);dot.setAttribute("cy",y)});
   }
   drawKitBase(p){
     this.box(0,-.05,0,2.82,.1,1.76,p.base);this.box(0,.075,0,2.76,.055,1.7,p.panel);this.box(0,.145,-1.62,2.69,.017,.025,p.red);this.box(0,.145,1.62,2.69,.017,.025,p.red);
@@ -455,7 +532,8 @@ class DetailedKitRenderer {
   }
   draw(){
     const gl=this.gl;if(!gl||!this.canvas.offsetParent)return;const dpr=Math.min(2,devicePixelRatio||1),w=this.canvas.clientWidth||400,h=this.canvas.clientHeight||400;if(this.canvas.width!==Math.floor(w*dpr)||this.canvas.height!==Math.floor(h*dpr)){this.canvas.width=Math.floor(w*dpr);this.canvas.height=Math.floor(h*dpr)}gl.viewport(0,0,this.canvas.width,this.canvas.height);gl.clearColor(0,0,0,0);gl.clearDepth(1);gl.depthMask(true);gl.disable(gl.BLEND);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);gl.frontFace(gl.CCW);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(this.program);if(!state.motionReduced&&!this.drag&&this.canvas.id!=="labCanvas")this.ry+=.00065;
-    this.drawHighDetailModel();
+    this.captureBounds=!this.solidBounds;if(this.captureBounds)this.solidBounds=[];
+    this.drawHighDetailModel();this.captureBounds=false;
     this.drawSurfaceArt();
     if(this.canvas.id==="labCanvas"){this.drawConnections();this.updatePinLabels();this.updateCallouts()}
   }
@@ -465,20 +543,24 @@ const renderers = [new DetailedKitRenderer($("#heroCanvas"), .88), new DetailedK
 if (!renderers.length) { $("#labCanvas").hidden = true; $("#fallbackBoard").hidden = false; $("#viewMode").textContent = "WebGL kullanılamıyor"; }
 
 function loop(time) {
-  if (state.running) {
-    const program = parseProgram(currentCode());
-    if (program.ok) {
-      state.sim.wired = checkConnections(currentMission(), currentConnections()).ok;
-      state.sim = computeFrame({ mission: currentMission(), env: state.env, program, previous: state.sim, elapsed: time - state.startTime });
-      updateOutputs();
-      if (!loop.lastLog || time - loop.lastLog > 1000) { state.serial.push(`[${new Date().toLocaleTimeString("tr-TR")}] ${state.sim.serialValue}`); renderSerial(); loop.lastLog = time; }
+  const delta=Math.min(100,Math.max(0,time-(loop.lastTick??time)));loop.lastTick=time;
+  if(state.running&&state.runtime){
+    loop.accumulator=(loop.accumulator||0)+delta*state.speed;
+    if(loop.accumulator>=90||state.runtime.wait){
+      try{
+        const elapsed=loop.accumulator;loop.accumulator=0;
+        publishExecution(state.runtime.advance(elapsed,state.env));
+      }catch(error){stop();$("#executionStatus").textContent=error.message;toast(error.message);state.runtime=null;}
     }
   }
-  renderers.forEach((r) => r.draw(time));
+  renderers.forEach(r=>r.draw(time));
   requestAnimationFrame(loop);
 }
 
 function init() {
+  $("#executionSpeed").addEventListener('change',e=>state.speed=Number(e.target.value));
+  $("#restartExecution").addEventListener('click',()=>{stop();state.runtime=null;state.sim.led=false;state.sim.fan=false;updateOutputs();prepareRuntime();$("#executionClock").textContent='0 ms';$("#variableWatch").replaceChildren();$("#executionStatus").textContent='Yürütme sıfırlandı.';});
+  $("#codeEditor").addEventListener('input',()=>{stop();state.runtime=null;$("#executionStatus").textContent='Kod değişti; çalıştırınca baştan başlayacak.';});
   $("#partFocus").addEventListener("change",event=>{
     const views={all:[null,6.4],uno:[[.87,.3,-.66],3.1],breadboard:[[-1.22,.3,-.62],2.9],led:[[-2.4,.3,-.3],3.1],controls:[[-.4,.3,1.1],4],lcd:[[1.92,.3,.92],2.5],distance:[[1.98,.3,.05],2.3]};
     const [focus,zoom]=views[event.target.value];
@@ -499,7 +581,7 @@ function init() {
   $("#resetMission").addEventListener("click", () => { state.connections[state.missionId] = []; state.code[state.missionId] = currentMission().starter; persist(); loadMission(); toast("Görev başlangıç durumuna döndü."); });
   ["light", "temp", "distance"].forEach((name) => $(`#${name}Range`).addEventListener("input", updateEnvironment));
   $("#nextHint").addEventListener("click", () => { state.hint = (state.hint + 1) % 3; $("#hintText").textContent = currentMission().hints[state.hint]; $("#hintLevel").textContent = `${state.hint + 1}/3`; });
-  $("#viewMode").addEventListener("click", () => { state.view3d = !state.view3d; $("#labCanvas").hidden = !state.view3d; $("#fallbackBoard").hidden = state.view3d; $("#viewMode").textContent = state.view3d ? "2D Görünüm" : "3D Görünüm"; });
+  $("#viewMode").addEventListener("click", () => { state.view3d = !state.view3d;if(state.view3d&&!renderers.some(r=>r.canvas.id==='labCanvas')){state.view3d=false;toast("Bu tarayıcıda 3B görüntüleyici kullanılamıyor.");}$("#pinOverlay").hidden=!state.view3d;$("#modelCallouts").hidden=!state.view3d||!state.showCallouts; $("#labCanvas").hidden = !state.view3d; $("#fallbackBoard").hidden = state.view3d; $("#viewMode").textContent = state.view3d ? "2D Görünüm" : "3D Görünüm"; });
   $("#guideToggle").addEventListener("click", () => { const list=$("#connectionGuide");list.hidden=!list.hidden;$("#guideToggle").textContent=list.hidden?"Rehberi Aç":"Rehber Açık"; });
   $("#resetCamera").addEventListener("click", () => renderers.forEach((r) => { r.focus=null;$("#partFocus").value="all";r.rx=-.62;r.ry=-.58;r.zoom=6.4; })); $("#topView").addEventListener("click", () => renderers.forEach((r) => { r.focus=null;$("#partFocus").value="all";r.rx=-1.48;r.ry=0;r.zoom=6.7; }));
   $("#labelToggle").addEventListener("click", () => { state.showLabels=!state.showLabels;$("#labelToggle").classList.toggle("active",state.showLabels);$("#labelToggle").setAttribute("aria-pressed",state.showLabels);toast(state.showLabels?"Bağlantı etiketleri açıldı.":"Bağlantı etiketleri gizlendi."); });

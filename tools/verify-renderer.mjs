@@ -22,6 +22,11 @@ for(const [meshIndex,mesh] of buffers.entries()){
 }
 renderer.focus=[.87,.3,-.66];renderer.zoom=3.1;
 const center=renderer.project(renderer.focus);
+assert.ok(renderer.rotation()[5]>0,'Default camera must see the top surface, not the underside');
+renderer.focus=null;renderer.rx=-Math.PI/2;renderer.ry=0;renderer.solidBounds=[[-1,-.1,-1,1,.1,1]];
+assert.equal(renderer.pointVisible([0,.3,0]),true,'Top pin must be visible');
+assert.equal(renderer.pointVisible([0,-.3,0]),false,'Board must hide a pin behind it');
+renderer.focus=[.87,.3,-.66];
 assert.ok(Math.abs(center[0]-500)<.001&&Math.abs(center[1]-350)<.001,'Focused part must project to viewport center');
 let parts=0;
 renderer.part=(mesh,...args)=>{assert.ok(args.slice(0,6).every(Number.isFinite),'Invalid geometry transform');assert.ok(args.slice(3,6).every(v=>v>0),'Degenerate solid');parts++;};
