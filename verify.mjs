@@ -48,6 +48,12 @@ assert.match(app, /this\.rx=wrap\(/, "Dikey eksen tam 360 derece dönebilmelidir
 assert.doesNotMatch(app, /this\.rx=Math\.max\(-1\.48/, "Dikey dönüş yarım küreyle sınırlandırılmamalı");
 assert.match(app, /drawConnections\(\)/, "Bağlantılar 3B sahnede çizilmelidir");
 assert.match(app, /hitPin\(event\)/, "Model uçları doğrudan seçilebilir olmalıdır");
+assert.match(html, /id="modelCallouts"/, "Parça açıklama kartları sahnede bulunmalıdır");
+assert.match(html, /id="autoWire"/, "Otomatik fiziksel bağlantı aracı bulunmalıdır");
+assert.match(html, /id="multimeterPanel"/, "Etkileşimli multimetre paneli bulunmalıdır");
+assert.match(app, /updateCallouts\(\)/, "Açıklama çizgileri 3B hedefleri izlemelidir");
+assert.match(app, /cableBetween\(a,b,radius,color\)/, "Kablolar kesintisiz silindirik geometri kullanmalıdır");
+assert.match(app, /for\(let row=0;row<6;row\+\+\)for\(let col=0;col<14;col\+\+\)/, "Breadboard bağlantı delikleri modellenmelidir");
 assert.doesNotMatch(html, /Karta yükle/i, "Gerçek donanım olmadan karta yükleme sunulmamalı");
 
 console.log("✓ 10 görev ve veri yapısı");
@@ -60,4 +66,6 @@ console.log("✓ Alt çizgisiz aktif durumlar ve güvenli model hitbox'ları");
 console.log("✓ Ayrıntılı WebGL RED Kit geometrisi");
 console.log("✓ 360° × 360° model dönüşü");
 console.log("✓ Model üzerinde seçilebilir uçlar ve görünür 3B kablolar");
+console.log("✓ RED Kit breadboard, UNO, LCD ve kumanda geometrileri");
+console.log("✓ Kamerayı izleyen açıklama kartları ve multimetre araçları");
 console.log("Canopy BioCore doğrulaması başarıyla tamamlandı.");

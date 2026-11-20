@@ -90,6 +90,13 @@
         </aside>
 
         <section class="workspace-panel">
+          <div class="scene-toolstrip" role="toolbar" aria-label="3B devre araçları">
+            <button id="labelToggle" class="scene-tool active" aria-pressed="true">Etiketler</button>
+            <button id="identifyToggle" class="scene-tool active" aria-pressed="true">Kartı tanı</button>
+            <button id="autoWire" class="scene-tool">Otomatik bağla</button>
+            <button id="clearWires" class="scene-tool">Kabloları sök</button>
+            <button id="multimeterToggle" class="scene-tool" aria-pressed="false">Multimetre</button>
+          </div>
           <div class="scene-header"><div><span id="connectionStatus" class="status warn">Devre eksik</span><small>Bağlantılar davranışı doğrudan etkiler</small></div><div><button id="resetCamera" class="icon-btn" title="Kamerayı sıfırla">⌂</button><button id="topView" class="icon-btn" title="Üstten görünüm">▣</button></div></div>
           <div class="scene-wrap">
             <canvas id="labCanvas" aria-label="Etkileşimli temsili RED Kit çalışma alanı"></canvas>
@@ -102,6 +109,21 @@
               <div class="fb-label">RED KIT · TEMSİLİ 2D BAĞLANTI TABLASI</div>
             </div>
             <div id="pinOverlay" class="pin-overlay" aria-hidden="true"></div>
+            <div id="modelCallouts" class="model-callouts" aria-hidden="true">
+              <svg id="calloutLeaders" class="callout-leaders" preserveAspectRatio="none">
+                <line data-callout-line="digital"></line><line data-callout-line="usb"></line>
+                <line data-callout-line="controller"></line><line data-callout-line="power"></line>
+                <circle data-callout-dot="digital" r="4"></circle><circle data-callout-dot="usb" r="4"></circle>
+                <circle data-callout-dot="controller" r="4"></circle><circle data-callout-dot="power" r="4"></circle>
+              </svg>
+              <article class="model-callout callout-digital" data-callout="digital"><i>▥</i><div><strong>Dijital pinler</strong><span>D0–D13: giriş, çıkış ve PWM sinyalleri.</span></div></article>
+              <article class="model-callout callout-usb" data-callout="usb"><i>▭</i><div><strong>USB</strong><span>Kodu bilgisayardan yükler ve kartı besler.</span></div></article>
+              <article class="model-callout callout-controller" data-callout="controller"><i>▦</i><div><strong>ATmega328P</strong><span>16 MHz denetleyici; devrenin karar merkezi.</span></div></article>
+              <article class="model-callout callout-power" data-callout="power"><i>⌁</i><div><strong>Güç ve analog</strong><span>5V, 3.3V, GND ve A0–A5 ölçüm uçları.</span></div></article>
+            </div>
+            <div id="multimeterPanel" class="multimeter-panel" hidden>
+              <span>MULTİMETRE · DC</span><strong id="multimeterValue">5.00 V</strong><small id="multimeterHint">5V ↔ GND ölçümü</small>
+            </div>
             <div class="model-legend" aria-hidden="true">
               <span><i></i>Arduino tabanlı kontrol kartı</span>
               <span><i style="background:#e7b928"></i>Mini breadboard</span>

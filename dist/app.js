@@ -21,6 +21,9 @@ const state = {
   serial: [],
   chart: [],
   pendingPin: null,
+  showLabels: true,
+  showCallouts: true,
+  multimeter: false,
   sim: { led: false, fan: false, count: 0, wasInside: false, tankLevel: 20, wired: false }
 };
 
@@ -107,6 +110,15 @@ function renderWires() {
   const label = $("#connectionStatus");
   label.className = `status ${result.ok ? "ok" : "warn"}`;
   label.textContent = result.ok ? "Devre hazır" : `${result.missing.length} bağlantı eksik`;
+  updateMultimeter();
+}
+
+function updateMultimeter() {
+  const value = $("#multimeterValue"), hint = $("#multimeterHint");
+  if (!value || !hint) return;
+  const powered = currentConnections().some((wire) => wire.includes("5V")) && currentConnections().some((wire) => wire.includes("GND"));
+  value.textContent = powered ? `${(4.96 + state.env.light / 2500).toFixed(2)} V` : "0.00 V";
+  hint.textContent = powered ? "Devre beslemesi · 5V ↔ GND" : "Ölçüm için 5V ve GND bağla";
 }
 
 function addWire() {
@@ -214,6 +226,7 @@ function updateEnvironment() {
   $("#heroTemp").textContent = `${state.env.temperature.toFixed(1)} °C`;
   state.chart.push({ ...state.env }); if (state.chart.length > 45) state.chart.shift();
   drawChart();
+  updateMultimeter();
 }
 
 function drawChart() {
@@ -317,29 +330,64 @@ class DetailedKitRenderer {
   rotation(){const a=this.rx,b=this.ry,ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b);return new Float32Array([cb,sa*sb,-ca*sb,0,ca,sa,sb,-sa*cb,ca*cb])}
   part(mesh,x,y,z,sx,sy,sz,color,id=""){const gl=this.gl,obj=this.meshes[mesh],boost=this.selected===id?.22:0;gl.bindBuffer(gl.ARRAY_BUFFER,obj.buffer);gl.enableVertexAttribArray(this.locP);gl.vertexAttribPointer(this.locP,3,gl.FLOAT,false,24,0);gl.enableVertexAttribArray(this.locN);gl.vertexAttribPointer(this.locN,3,gl.FLOAT,false,24,12);gl.uniformMatrix4fv(this.locM,false,this.matrix(x*this.scale,y*this.scale,z*this.scale,sx*this.scale,sy*this.scale,sz*this.scale));gl.uniformMatrix3fv(this.locR,false,this.rotation());gl.uniform4fv(this.locC,[Math.min(1,color[0]+boost),Math.min(1,color[1]+boost),Math.min(1,color[2]+boost),1]);gl.drawArrays(gl.TRIANGLES,0,obj.count)}
   box(...a){this.part("cube",...a)} cylinder(...a){this.part("cylinder",...a)}
+  cableBetween(a,b,radius,color){
+    const ax=a[0]*this.scale,ay=a[1]*this.scale,az=a[2]*this.scale,bx=b[0]*this.scale,by=b[1]*this.scale,bz=b[2]*this.scale,dx=bx-ax,dy=by-ay,dz=bz-az,len=Math.hypot(dx,dy,dz);if(!len)return;
+    const ux=dx/len,uy=dy/len,uz=dz/len,ref=Math.abs(uy)>.92?[1,0,0]:[0,1,0],rx=ref[1]*uz-ref[2]*uy,ry=ref[2]*ux-ref[0]*uz,rz=ref[0]*uy-ref[1]*ux,rl=Math.hypot(rx,ry,rz),nx=rx/rl,ny=ry/rl,nz=rz/rl,zx=uy*nz-uz*ny,zy=uz*nx-ux*nz,zz=ux*ny-uy*nx,s=radius*this.scale;
+    const model=[nx*s,ny*s,nz*s,0,ux*len/2,uy*len/2,uz*len/2,0,zx*s,zy*s,zz*s,0,(ax+bx)/2,(ay+by)/2,(az+bz)/2,1],obj=this.meshes.cylinder,gl=this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER,obj.buffer);gl.enableVertexAttribArray(this.locP);gl.vertexAttribPointer(this.locP,3,gl.FLOAT,false,24,0);gl.enableVertexAttribArray(this.locN);gl.vertexAttribPointer(this.locN,3,gl.FLOAT,false,24,12);gl.uniformMatrix4fv(this.locM,false,new Float32Array(this.mul(this.scene(),model)));gl.uniformMatrix3fv(this.locR,false,this.rotation());gl.uniform4fv(this.locC,[...color,1]);gl.drawArrays(gl.TRIANGLES,0,obj.count);
+  }
   project(point){const m=this.scene(),x=point[0]*this.scale,y=point[1]*this.scale,z=point[2]*this.scale,cx=m[0]*x+m[4]*y+m[8]*z+m[12],cy=m[1]*x+m[5]*y+m[9]*z+m[13],cw=m[3]*x+m[7]*y+m[11]*z+m[15],rect=this.canvas.getBoundingClientRect();return[(cx/cw*.5+.5)*rect.width,(-cy/cw*.5+.5)*rect.height]}
   hitPin(event){const rect=this.canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;let best=null,bestDistance=26;for(const [pin,point] of Object.entries(this.pinPoints)){const p=this.project(point),d=Math.hypot(x-p[0],y-p[1]);if(d<bestDistance){bestDistance=d;best=pin}}if(best)handleModelPin(best);else toast("Bir bağlantı ucuna daha yakın tıkla.")}
   drawConnections(){
     const colors=[[.9,.16,.12],[.12,.52,.86],[.93,.62,.08],[.18,.7,.34],[.66,.25,.82],[.95,.38,.1],[.2,.76,.72],[.76,.18,.4],[.48,.7,.12]];
-    currentConnections().forEach(([a,b],wireIndex)=>{const p0=this.pinPoints[a],p1=this.pinPoints[b];if(!p0||!p1)return;const height=Math.max(p0[1],p1[1])+.52+(wireIndex%3)*.08,color=colors[wireIndex%colors.length],segments=56;for(let i=0;i<=segments;i++){const t=i/segments,u=1-t,x=u*u*p0[0]+2*u*t*((p0[0]+p1[0])/2)+t*t*p1[0],y=u*u*p0[1]+2*u*t*height+t*t*p1[1],z=u*u*p0[2]+2*u*t*((p0[2]+p1[2])/2)+t*t*p1[2];this.box(x,y,z,.05,.05,.05,color)}});
+    currentConnections().forEach(([a,b],wireIndex)=>{const p0=this.pinPoints[a],p1=this.pinPoints[b];if(!p0||!p1)return;const height=Math.max(p0[1],p1[1])+.52+(wireIndex%3)*.08,color=colors[wireIndex%colors.length],segments=28,points=[];for(let i=0;i<=segments;i++){const t=i/segments,u=1-t;points.push([u*u*p0[0]+2*u*t*((p0[0]+p1[0])/2)+t*t*p1[0],u*u*p0[1]+2*u*t*height+t*t*p1[1],u*u*p0[2]+2*u*t*((p0[2]+p1[2])/2)+t*t*p1[2]])}for(let i=1;i<points.length;i++)this.cableBetween(points[i-1],points[i],.035,color)});
     for(const [pin,point] of Object.entries(this.pinPoints)){const active=state.pendingPin===pin;this.cylinder(point[0],point[1],point[2],active?.075:.045,active?.1:.065,active?.075:.045,active?[.1,.65,1]:[.9,.66,.16])}
   }
   updatePinLabels(){
-    const overlay=$("#pinOverlay");if(!overlay)return;const pins=[...new Set(currentMission().connections.flat())],signature=`${state.missionId}:${pins.join("|")}`;
+    const overlay=$("#pinOverlay");if(!overlay)return;overlay.hidden=!state.showLabels;if(!state.showLabels)return;const pins=[...new Set(currentMission().connections.flat())],signature=`${state.missionId}:${pins.join("|")}`;
     if(overlay.dataset.signature!==signature){overlay.dataset.signature=signature;overlay.innerHTML=pins.map(pin=>`<span class="pin-label" data-pin-label="${pin}">${pin}</span>`).join("")}
     $$('[data-pin-label]',overlay).forEach(label=>{const point=this.pinPoints[label.dataset.pinLabel];if(!point)return;const [x,y]=this.project(point);label.style.left=`${x}px`;label.style.top=`${y}px`;label.classList.toggle("selected",state.pendingPin===label.dataset.pinLabel)});
+  }
+  updateCallouts(){
+    const layer=$("#modelCallouts"),svg=$("#calloutLeaders");if(!layer||!svg)return;layer.hidden=!state.showCallouts;if(!state.showCallouts)return;
+    const targets={digital:[-1.48,.5,-.98],usb:[-2.08,.45,-.72],controller:[-1.5,.48,-.5],power:[1.65,.45,.08]},wrap=this.canvas.getBoundingClientRect();
+    svg.setAttribute("viewBox",`0 0 ${wrap.width} ${wrap.height}`);
+    Object.entries(targets).forEach(([name,point])=>{const card=$(`[data-callout="${name}"]`,layer),line=$(`[data-callout-line="${name}"]`,svg),dot=$(`[data-callout-dot="${name}"]`,svg);if(!card||!line||!dot)return;const rect=card.getBoundingClientRect(),[x,y]=this.project(point),cx=rect.left-wrap.left+rect.width/2,cy=rect.top-wrap.top+rect.height/2;line.setAttribute("x1",cx);line.setAttribute("y1",cy);line.setAttribute("x2",x);line.setAttribute("y2",y);dot.setAttribute("cx",x);dot.setAttribute("cy",y)});
   }
   draw(){
     const gl=this.gl;if(!gl)return;const dpr=Math.min(2,devicePixelRatio||1),w=this.canvas.clientWidth||400,h=this.canvas.clientHeight||400;if(this.canvas.width!==Math.floor(w*dpr)||this.canvas.height!==Math.floor(h*dpr)){this.canvas.width=Math.floor(w*dpr);this.canvas.height=Math.floor(h*dpr)}gl.viewport(0,0,this.canvas.width,this.canvas.height);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);gl.useProgram(this.program);if(!state.motionReduced&&!this.drag&&this.canvas.id!=="labCanvas")this.ry+=.00065;
     const black=[.035,.045,.042],red=[.78,.08,.09],blue=[.04,.27,.5],yellow=[.92,.67,.08],silver=[.68,.72,.7],green=[.09,.35,.18],gold=[.78,.52,.12],dark=[.08,.1,.09],white=[.86,.88,.82];
     this.box(0,0,0,2.75,.13,1.7,black,"red-board");this.box(0,.14,-1.58,2.72,.035,.045,red);this.box(0,.14,1.58,2.72,.035,.045,red);this.box(-2.62,.14,0,.045,.035,1.54,red);this.box(2.62,.14,0,.045,.035,1.54,red);
-    this.box(-1.48,.24,-.5,.78,.08,.58,blue,"red-board");this.box(-1.5,.37,-.5,.28,.09,.16,dark);this.box(-2.08,.36,-.72,.2,.14,.24,silver);this.box(-1.88,.35,.02,.12,.13,.16,dark);for(let i=0;i<8;i++){this.box(-1.9+i*.13,.35,-.98,.045,.07,.035,dark);this.box(-1.9+i*.13,.35,-.03,.045,.07,.035,dark)}
-    this.box(.05,.23,-.35,.82,.08,.5,yellow,"temp");this.box(.05,.33,-.35,.035,.025,.46,[.7,.45,.06]);for(let row=0;row<2;row++)for(let i=0;i<9;i++)this.cylinder(-.58+i*.16,.335,-.63+row*.55,.018,.012,.018,dark);
+    /* UNO tabanlı denetleyici: PCB, USB, güç jakı, işlemci, kristal ve pin sıraları. */
+    this.box(-1.46,.24,-.48,.9,.075,.67,blue,"red-board");
+    this.box(-1.49,.37,-.48,.3,.085,.17,dark,"controller");
+    for(let i=0;i<7;i++){this.box(-1.74+i*.085,.465,-.64,.018,.018,.018,silver);this.box(-1.74+i*.085,.465,-.32,.018,.018,.018,silver)}
+    this.box(-2.24,.39,-.72,.25,.16,.25,silver,"usb");this.box(-2.46,.39,-.72,.04,.125,.2,[.32,.35,.34]);
+    this.cylinder(-2.12,.39,.02,.14,.15,.14,dark,"power");this.cylinder(-2.12,.39,.02,.075,.16,.075,[.18,.2,.19]);
+    this.box(-1.02,.36,-.7,.14,.055,.075,silver);this.box(-.98,.37,-.18,.13,.05,.09,[.12,.18,.16]);
+    for(let i=0;i<12;i++){this.box(-2.06+i*.14,.39,-1.02,.052,.08,.04,dark);this.cylinder(-2.06+i*.14,.48,-1.02,.018,.035,.018,gold)}
+    for(let i=0;i<8;i++){this.box(-1.96+i*.14,.39,.08,.052,.08,.04,dark);this.cylinder(-1.96+i*.14,.48,.08,.018,.035,.018,gold)}
+    /* Sarı RED Kit breadboard: güç rayları, orta kanal ve yoğun bağlantı delikleri. */
+    this.box(.18,.24,-.34,.92,.085,.68,yellow,"temp");
+    this.box(.18,.34,-.34,.055,.026,.65,[.72,.46,.04]);
+    this.box(.18,.343,-.93,.82,.01,.012,red);this.box(.18,.343,.25,.82,.01,.012,[.1,.35,.78]);
+    for(let row=0;row<6;row++)for(let col=0;col<14;col++){const x=-.57+col*.115,z=-.78+row*.175;this.cylinder(x,.36,z,.017,.012,.017,dark)}
+    for(let col=0;col<14;col++){const x=-.57+col*.115;this.cylinder(x,.36,-.98,.017,.012,.017,dark);this.cylinder(x,.36,.31,.017,.012,.017,dark)}
+    /* Breadboard üzerindeki LED, direnç ve fiziksel bacaklar. */
+    this.cylinder(.63,.54,-.22,.075,.13,.075,state.sim.led?[1,.22,.08]:[.62,.08,.06],"led");
+    this.box(.58,.39,-.22,.012,.15,.012,silver);this.box(.69,.39,-.22,.012,.15,.012,silver);
+    this.box(.02,.47,-.22,.25,.045,.045,[.82,.68,.42]);this.box(-.12,.475,-.22,.018,.052,.052,red);this.box(.02,.475,-.22,.018,.052,.052,[.15,.1,.05]);this.box(.16,.475,-.22,.018,.052,.052,gold);
+    this.box(-.34,.43,-.22,.12,.012,.012,silver);this.box(.38,.43,-.22,.12,.012,.012,silver);
     const colors=[[.86,.08,.08],[.92,.42,.04],[.95,.78,.08],[.22,.7,.2],[.08,.48,.88],[.66,.18,.82]];colors.forEach((c,i)=>{this.cylinder(-1.78+i*.25,.38,.66,.075,.14,.075,i===0&&state.sim.led?[.75,1,.3]:c,"led");this.box(-1.78+i*.25,.25,.66,.11,.035,.11,dark)});
     for(let i=0;i<4;i++){this.box(.1+i*.34,.27,.7,.14,.06,.14,white);this.box(.1+i*.34,.37,.7,.085,.055,.085,[.18,.22,.2])}this.cylinder(1.72,.38,.68,.18,.15,.18,[.2,.22,.2],"light");this.box(2.16,.32,.67,.2,.13,.13,red);
+    /* Gerçek RED Kit düzenindeki alt kumandalar ve sağ LCD modülü. */
+    const buttonColors=[[.86,.08,.08],[.95,.72,.04],[.86,.08,.08],[.85,.08,.08]];buttonColors.forEach((c,i)=>{const x=-1.55+i*.48;this.cylinder(x,.42,1.25,.18,.12,.18,c);this.box(x,.27,1.25,.23,.08,.23,dark)});
+    this.cylinder(.6,.4,1.22,.18,.12,.18,[.75,.08,.08]);this.box(.6,.27,1.22,.22,.08,.22,dark);
+    this.cylinder(1.15,.42,1.2,.16,.16,.16,[.14,.16,.15]);this.box(1.15,.27,1.2,.21,.08,.21,dark);
+    this.box(1.92,.29,.88,.57,.07,.48,blue,"lcd");this.box(1.92,.39,.88,.46,.035,.33,[.56,.64,.52]);this.box(1.92,.405,.88,.39,.012,.25,[.2,.28,.22]);
     this.box(1.65,.24,-.64,.62,.07,.4,green,"distance");this.cylinder(1.38,.42,-.64,.2,.14,.2,silver,"distance");this.cylinder(1.92,.42,-.64,.2,.14,.2,silver,"distance");
     for(let i=0;i<7;i++){this.box(-1.8+i*.57,.27,-1.3,.2,.11,.13,i<3?red:green,i===6?"motor":"");this.box(-1.9+i*.57,.39,-1.3,.035,.035,.035,gold)}this.box(1.75,.24,.08,.72,.07,.18,dark);for(let i=0;i<10;i++)this.box(1.15+i*.13,.35,.08,.025,.09,.025,gold);this.box(2.23,.3,-.02,.18,.16,.25,[.08,.16,.12],"driver");
-    if(this.canvas.id==="labCanvas"){this.drawConnections();this.updatePinLabels()}
+    if(this.canvas.id==="labCanvas"){this.drawConnections();this.updatePinLabels();this.updateCallouts()}
   }
 }
 
@@ -376,6 +424,11 @@ function init() {
   $("#viewMode").addEventListener("click", () => { state.view3d = !state.view3d; $("#labCanvas").hidden = !state.view3d; $("#fallbackBoard").hidden = state.view3d; $("#viewMode").textContent = state.view3d ? "2D Görünüm" : "3D Görünüm"; });
   $("#guideToggle").addEventListener("click", () => { const list=$("#connectionGuide");list.hidden=!list.hidden;$("#guideToggle").textContent=list.hidden?"Rehberi Aç":"Rehber Açık"; });
   $("#resetCamera").addEventListener("click", () => renderers.forEach((r) => { r.rx=-.62;r.ry=-.58;r.zoom=6.4; })); $("#topView").addEventListener("click", () => renderers.forEach((r) => { r.rx=-1.48;r.ry=0;r.zoom=6.7; }));
+  $("#labelToggle").addEventListener("click", () => { state.showLabels=!state.showLabels;$("#labelToggle").classList.toggle("active",state.showLabels);$("#labelToggle").setAttribute("aria-pressed",state.showLabels);toast(state.showLabels?"Bağlantı etiketleri açıldı.":"Bağlantı etiketleri gizlendi."); });
+  $("#identifyToggle").addEventListener("click", () => { state.showCallouts=!state.showCallouts;$("#identifyToggle").classList.toggle("active",state.showCallouts);$("#identifyToggle").setAttribute("aria-pressed",state.showCallouts); });
+  $("#autoWire").addEventListener("click", () => { state.connections[state.missionId]=currentMission().connections.map((wire)=>[...wire]);persist();renderWires();toast("Görev bağlantıları fiziksel kablolarla oluşturuldu."); });
+  $("#clearWires").addEventListener("click", () => { state.connections[state.missionId]=[];state.pendingPin=null;persist();renderWires();toast("Tüm kablolar söküldü."); });
+  $("#multimeterToggle").addEventListener("click", () => { state.multimeter=!state.multimeter;$("#multimeterPanel").hidden=!state.multimeter;$("#multimeterToggle").classList.toggle("active",state.multimeter);$("#multimeterToggle").setAttribute("aria-pressed",state.multimeter);updateMultimeter(); });
   $("#journalNotes").addEventListener("input", () => { state.notes = $("#journalNotes").value; persist(); });
   $("#resetProgress").addEventListener("click", () => { if (confirm("Yerel görev ilerlemesi ve notlar silinsin mi?")) { localStorage.removeItem(STORAGE_KEY); location.reload(); } });
   renderMissions(); loadMission(); renderHardware(); renderJournal(); updateEnvironment(); renderSerial(); requestAnimationFrame(loop);
