@@ -5,8 +5,8 @@
   "type": "module",
   "description": "Canopy BioCore — RED Kit Doğa Laboratuvarı yerel prototipi",
   "scripts": {
-    "build": "node verify.mjs",
-    "start": "node server.mjs",
+    "build": "node build.mjs",
+    "start": "node tools/local-server.mjs",
     "verify": "node verify.mjs"
   }
 }
