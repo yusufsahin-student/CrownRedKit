@@ -67,6 +67,15 @@ nav button.active {
 .model-label { bottom: 8%; z-index: 4; box-shadow: 0 8px 24px rgba(16,42,34,.18); }
 
 .scene-wrap { isolation: isolate; }
+.lab-grid { grid-template-columns: 240px minmax(0,1fr); grid-template-rows: auto auto auto; }
+.workspace-panel { min-height: 780px; }
+.controls-panel { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1rem; }
+.controls-panel .panel-title { grid-column: 1 / -1; }
+.scene-toolstrip { flex-wrap: wrap; flex-shrink: 0; }
+.scene-header { flex-shrink: 0; }
+.part-focus { display:flex; align-items:center; gap:.5rem; font-size:14px; }
+.part-focus select { max-width:220px; padding:.45rem; border:1px solid var(--line); border-radius:7px; background:var(--white); color:var(--forest); }
+@media(max-width:760px){ .controls-panel{display:block} .workspace-panel{min-height:720px} }
 .scene-wrap::after { z-index: 0; }
 .scene-readouts { pointer-events: none; }
 .scene-toolstrip {

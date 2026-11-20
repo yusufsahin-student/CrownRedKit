@@ -1,4 +1,5 @@
 import { missions, missionById } from "./missions.js";
+import { SurfaceArt, paintKitArtwork } from "./surface-art.js";
 import { hardware, allPins, HARDWARE_NOTICE } from "./hardware.js";
 import { parseProgram, checkConnections, computeFrame, runMissionTests } from "./simulator.js";
 
@@ -298,9 +299,9 @@ class DetailedKitRenderer {
   constructor(canvas, scale = 1) {
     this.canvas=canvas;this.scale=scale;this.rx=-.62;this.ry=-.58;this.zoom=6.4;this.drag=null;this.pointerStart=null;this.selected="";
     this.pinPoints={
-      D2:[.22,.51,-1.22],D3:[.4,.51,-1.22],D5:[.58,.51,-1.22],D6:[.76,.51,-1.22],D9:[.94,.51,-1.22],
-      A0:[.34,.51,-.08],A1:[.54,.51,-.08],A2:[.74,.51,-.08],"5V":[1.2,.51,-.08],GND:[1.42,.51,-.08],
-      "LED+":[-2.38,.56,-.72],"LED-":[-2.22,.34,-.72],"L-SIG":[-1.76,.52,-1.35],"L-VCC":[-1.9,.36,-1.2],"L-GND":[-1.62,.36,-1.2],
+      D2:[1.367,.49,-1.23],D3:[1.25,.49,-1.23],D5:[1.016,.49,-1.23],D6:[.899,.49,-1.23],D9:[.548,.49,-1.23],
+      A0:[.12,.49,-.09],A1:[.28,.49,-.09],A2:[.44,.49,-.09],"5V":[1.24,.49,-.09],GND:[1.4,.49,-.09],
+      "LED+":[-2.45,.56,-1.18],"LED-":[-2.22,.34,-1.18],"L-SIG":[-1.76,.52,-1.35],"L-VCC":[-1.9,.36,-1.2],"L-GND":[-1.62,.36,-1.2],
       "T-SIG":[-1.1,.52,-1.38],"T-VCC":[-.94,.38,-1.22],"T-GND":[-.78,.38,-1.22],TRIG:[1.9,.58,-.08],ECHO:[2.28,.58,-.08],"D-VCC":[1.8,.36,.1],"D-GND":[2.38,.36,.1],
       "M-IN":[2.18,.56,.3],"M-VCC":[2.02,.45,.47],"M-GND":[2.38,.45,.47],"M-OUT":[2.2,.46,.12],"M+":[2.46,.46,.05],"M-":[2.52,.46,.28]
     };
@@ -315,6 +316,7 @@ class DetailedKitRenderer {
     const cyl=[],segments=24;for(let i=0;i<segments;i++){const a=i/segments*Math.PI*2,b=(i+1)/segments*Math.PI*2,p1=[Math.cos(a),-1,Math.sin(a)],p2=[Math.cos(b),-1,Math.sin(b)],p3=[Math.cos(b),1,Math.sin(b)],p4=[Math.cos(a),1,Math.sin(a)],sn=[Math.cos((a+b)/2),0,Math.sin((a+b)/2)];tri(cyl,p1,p3,p2,sn);tri(cyl,p1,p4,p3,sn);tri(cyl,[0,1,0],p3,p4,[0,1,0]);tri(cyl,[0,-1,0],p1,p2,[0,-1,0])}
     const sphere=[],lat=14,lon=24;for(let y=0;y<lat;y++)for(let x=0;x<lon;x++){const a0=y/lat*Math.PI-Math.PI/2,a1=(y+1)/lat*Math.PI-Math.PI/2,b0=x/lon*Math.PI*2,b1=(x+1)/lon*Math.PI*2,v=(a,b)=>[Math.cos(a)*Math.cos(b),Math.sin(a),Math.cos(a)*Math.sin(b)],v00=v(a0,b0),v10=v(a0,b1),v11=v(a1,b1),v01=v(a1,b0);triN(sphere,v00,v11,v10);triN(sphere,v00,v01,v11)}
     this.meshes={cube:this.mesh(cube),cylinder:this.mesh(cyl),sphere:this.mesh(sphere)};
+    this.art=new SurfaceArt(gl);paintKitArtwork(this.art);
   }
   mesh(data){const gl=this.gl,b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.STATIC_DRAW);return{buffer:b,count:data.length/6}}
   bind(){
@@ -323,13 +325,13 @@ class DetailedKitRenderer {
     c.addEventListener("pointermove",e=>{if(!this.drag)return;this.ry=wrap(this.ry+(e.clientX-this.drag[0])*.008);this.rx=wrap(this.rx+(e.clientY-this.drag[1])*.008);this.drag=[e.clientX,e.clientY]});
     c.addEventListener("pointerup",e=>{const start=this.pointerStart,moved=start?Math.hypot(e.clientX-start[0],e.clientY-start[1]):99;this.drag=null;this.pointerStart=null;c.style.cursor="grab";if(moved<7&&c.id==="labCanvas")this.hitPin(e)});
     c.addEventListener("pointercancel",()=>{this.drag=null;this.pointerStart=null;c.style.cursor="grab"});c.style.cursor="grab";
-    c.addEventListener("wheel",e=>{e.preventDefault();this.zoom=Math.max(4.2,Math.min(10,this.zoom+e.deltaY*.004))},{passive:false})
+    c.addEventListener("wheel",e=>{e.preventDefault();this.zoom=Math.max(this.focus?1.8:4.2,Math.min(10,this.zoom+e.deltaY*.004))},{passive:false})
   }
   mul(A,B){const O=new Array(16).fill(0);for(let r=0;r<4;r++)for(let c=0;c<4;c++)for(let k=0;k<4;k++)O[c*4+r]+=A[k*4+r]*B[c*4+k];return O}
-  scene(){const a=this.rx,b=this.ry,ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b),aspect=Math.max(.2,this.canvas.width/this.canvas.height),f=1/Math.tan(.48),near=.1,far=40,rx=[1,0,0,0,0,ca,sa,0,0,-sa,ca,0,0,0,0,1],ry=[cb,0,-sb,0,0,1,0,0,sb,0,cb,0,0,0,0,1],view=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,-this.zoom,1],proj=[f/aspect,0,0,0,0,f,0,0,0,0,(far+near)/(near-far),-1,0,0,(2*far*near)/(near-far),0];return this.mul(proj,this.mul(view,this.mul(rx,ry)))}
+  scene(){const a=this.rx,b=this.ry,ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b),aspect=Math.max(.2,this.canvas.width/this.canvas.height),f=1/Math.tan(.48),near=.1,far=40,rx=[1,0,0,0,0,ca,sa,0,0,-sa,ca,0,0,0,0,1],ry=[cb,0,-sb,0,0,1,0,0,sb,0,cb,0,0,0,0,1],view=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,-this.zoom,1],proj=[f/aspect,0,0,0,0,f,0,0,0,0,(far+near)/(near-far),-1,0,0,(2*far*near)/(near-far),0];return this.mul(proj,this.mul(view,this.mul(rx,this.mul(ry,[1,0,0,0,0,1,0,0,0,0,1,0,-(this.focus?.[0]||0)*this.scale,-(this.focus?.[1]||0)*this.scale,-(this.focus?.[2]||0)*this.scale,1]))))}
   matrix(x,y,z,sx,sy,sz){const t=[1,0,0,0,0,1,0,0,0,0,1,0,x,y,z,1],s=[sx,0,0,0,0,sy,0,0,0,0,sz,0,0,0,0,1];return new Float32Array(this.mul(this.scene(),this.mul(t,s)))}
   rotation(){const a=this.rx,b=this.ry,ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b);return new Float32Array([cb,sa*sb,-ca*sb,0,ca,sa,sb,-sa*cb,ca*cb])}
-  part(mesh,x,y,z,sx,sy,sz,color,id=""){const gl=this.gl,obj=this.meshes[mesh],boost=this.selected===id?.22:0,metal=/usb|power|silver|lcd-frame/.test(id);gl.bindBuffer(gl.ARRAY_BUFFER,obj.buffer);gl.enableVertexAttribArray(this.locP);gl.vertexAttribPointer(this.locP,3,gl.FLOAT,false,24,0);gl.enableVertexAttribArray(this.locN);gl.vertexAttribPointer(this.locN,3,gl.FLOAT,false,24,12);gl.uniformMatrix4fv(this.locM,false,this.matrix(x*this.scale,y*this.scale,z*this.scale,sx*this.scale,sy*this.scale,sz*this.scale));gl.uniformMatrix3fv(this.locR,false,this.rotation());gl.uniform4fv(this.locC,[Math.min(1,color[0]+boost),Math.min(1,color[1]+boost),Math.min(1,color[2]+boost),1]);gl.uniform1f(this.locShine,metal?.9:.24);gl.drawArrays(gl.TRIANGLES,0,obj.count)}
+  part(mesh,x,y,z,sx,sy,sz,color,id=""){const gl=this.gl,obj=this.meshes[mesh],boost=this.selected===id?.22:0,metal=/usb|power|silver|lcd-frame/.test(id);gl.bindBuffer(gl.ARRAY_BUFFER,obj.buffer);gl.enableVertexAttribArray(this.locP);gl.vertexAttribPointer(this.locP,3,gl.FLOAT,false,24,0);gl.enableVertexAttribArray(this.locN);gl.vertexAttribPointer(this.locN,3,gl.FLOAT,false,24,12);gl.uniformMatrix4fv(this.locM,false,this.matrix(x*this.scale,y*this.scale,z*this.scale,sx*this.scale,sy*this.scale,sz*this.scale));const normal=this.rotation();for(let i=0;i<9;i++)normal[i]/=[sx,sy,sz][Math.floor(i/3)];gl.uniformMatrix3fv(this.locR,false,normal);gl.uniform4fv(this.locC,[Math.min(1,color[0]+boost),Math.min(1,color[1]+boost),Math.min(1,color[2]+boost),1]);gl.uniform1f(this.locShine,metal?.9:.24);gl.drawArrays(gl.TRIANGLES,0,obj.count)}
   box(...a){this.part("cube",...a)} cylinder(...a){this.part("cylinder",...a)} sphere(...a){this.part("sphere",...a)}
   cableBetween(a,b,radius,color){
     const ax=a[0]*this.scale,ay=a[1]*this.scale,az=a[2]*this.scale,bx=b[0]*this.scale,by=b[1]*this.scale,bz=b[2]*this.scale,dx=bx-ax,dy=by-ay,dz=bz-az,len=Math.hypot(dx,dy,dz);if(!len)return;
@@ -367,23 +369,48 @@ class DetailedKitRenderer {
     this.box(-2.45,.23,.82,.16,.045,.13,p.dark);this.cylinder(-2.45,.34,.82,.105,.07,.105,p.silk);this.sphere(-2.45,.455,.82,.105,.12,.105,[.82,.86,.86]);
   }
   drawBreadboard(p){
-    const cx=-1.22,cz=-.62;this.box(cx,.25,cz,.84,.085,.62,p.yellow,"breadboard");this.box(cx,.35,cz,.055,.025,.58,[.66,.4,.025]);
-    this.box(cx,.348,cz-.54,.74,.012,.012,p.red);this.box(cx,.348,cz+.54,.74,.012,.012,p.blue);
-    for(let row=0;row<6;row++)for(let col=0;col<14;col++){const x=cx-.7+col*.108,z=cz-.39+row*.156;this.cylinder(x,.365,z,.018,.013,.018,p.hole)}
-    for(let col=0;col<14;col++){const x=cx-.7+col*.108;this.cylinder(x,.365,cz-.55,.018,.013,.018,p.hole);this.cylinder(x,.365,cz+.55,.018,.013,.018,p.hole)}
+    const cx=-1.22,cz=-.62;
+    this.box(cx,.21,cz,.84,.055,.62,[.69,.43,.025]);
+    // Separate banks with a real recessed central channel.
+    for(const side of [-1,1])this.box(cx,.285,cz+side*.325,.84,.075,.295,p.yellow,"breadboard");
+    for(let row=0;row<10;row++)for(let col=0;col<17;col++){
+      const x=cx-.735+col*.092,z=cz+(row<5?-.46+row*.078:.15+(row-5)*.078);
+      this.socket(x,.36,z,.024,p);
+    }
     this.sphere(cx+.42,.57,cz+.1,.075,.11,.075,p.red,"led");this.cylinder(cx+.42,.45,cz+.1,.05,.09,.05,p.red);
     this.box(cx-.14,.49,cz+.1,.23,.04,.04,p.resistor);[-.26,-.12,.02].forEach((d,i)=>this.box(cx+d,.495,cz+.1,.018,.047,.047,[p.red,p.dark,p.gold][i]));
     this.box(cx-.5,.435,cz+.1,.13,.012,.012,p.metal);this.box(cx+.18,.435,cz+.1,.13,.012,.012,p.metal);
+    for(const x of [cx+.385,cx+.455])this.box(x,.4,cz+.1,.008,.085,.008,p.metal);
+  }
+  socket(x,y,z,r,p){
+    // Four raised rim walls surround a recessed metallic contact and dark well.
+    this.box(x-r,y,z,.006,.018,r+.006,p.socket);
+    this.box(x+r,y,z,.006,.018,r+.006,p.socket);
+    this.box(x,y,z-r,r,.018,.006,p.socket);
+    this.box(x,y,z+r,r,.018,.006,p.socket);
+    this.box(x,y-.012,z,r,.003,r,p.hole);
+    this.box(x-r*.65,y-.006,z,.003,.006,r*.5,p.gold);
   }
   drawUno(p){
     const cx=.87,cz=-.66;this.box(cx,.235,cz,.96,.075,.64,p.uno,"uno");this.box(cx,.32,cz,.92,.015,.6,[.035,.32,.58]);
-    this.box(1.94,.4,cz-.03,.24,.17,.25,p.metal,"usb");this.box(2.16,.4,cz-.03,.035,.125,.2,[.3,.33,.33]);this.box(1.94,.4,cz-.03,.15,.09,.15,[.72,.76,.75]);
+    // USB type-B: hollow metal shell with an inset insulator and four contacts.
+    this.box(1.94,.56,cz-.03,.24,.025,.24,p.metal,"usb");
+    this.box(1.94,.255,cz-.03,.24,.025,.24,p.metal,"usb");
+    for(const side of [-1,1])this.box(1.94,.405,cz-.03+side*.225,.24,.13,.025,p.metal,"usb");
+    this.box(1.73,.405,cz-.03,.025,.13,.2,p.dark);
+    this.box(1.94,.34,cz-.03,.14,.035,.12,[.12,.14,.16]);
+    for(let i=0;i<4;i++)this.box(2.02,.38,cz-.12+i*.06,.085,.006,.012,p.gold);
     this.cylinder(1.73,.39,cz+.49,.145,.15,.145,p.dark,"power");this.cylinder(1.73,.39,cz+.49,.075,.16,.075,[.16,.18,.17]);
-    this.box(.82,.4,cz,.28,.08,.2,p.chip,"controller");
-    for(let i=0;i<7;i++){const d=-.22+i*.073;this.box(.82+d,.39,cz-.23,.022,.015,.055,p.metal);this.box(.82+d,.39,cz+.23,.022,.015,.055,p.metal)}
+    this.box(.72,.405,cz,.43,.08,.135,p.chip,"controller");
+    for(let i=0;i<14;i++)for(const side of [-1,1]){const x=.32+i*.061,z=cz+side*.17;this.box(x,.4,z,.012,.012,.045,p.metal,"silver");this.box(x,.363,cz+side*.205,.012,.038,.012,p.metal,"silver");}
+    this.cylinder(.34,.488,cz,.027,.005,.027,[.24,.25,.24]);
     this.box(1.35,.37,cz-.28,.13,.05,.08,p.metal,"silver");this.box(.25,.37,cz+.25,.12,.055,.09,p.dark);
-    for(let i=0;i<10;i++){const x=.2+i*.16;this.box(x,.39,cz-.57,.06,.075,.045,p.socket);this.cylinder(x,.485,cz-.57,.018,.035,.018,p.gold)}
-    for(let i=0;i<8;i++){const x=.3+i*.17;this.box(x,.39,cz+.57,.06,.075,.045,p.socket);this.cylinder(x,.485,cz+.57,.018,.035,.018,p.gold)}
+    for(let i=0;i<14;i++){const x=.08+i*.117;this.box(x,.385,cz-.57,.055,.06,.047,p.socket);this.socket(x,.46,cz-.57,.027,p);}
+    for(let i=0;i<10;i++){const x=.12+i*.16;this.box(x,.385,cz+.57,.07,.06,.047,p.socket);this.socket(x,.46,cz+.57,.027,p);}
+    // Decoupling capacitors, reset switch, crystal and plated solder pads.
+    for(let i=0;i<12;i++){const x=.12+(i%6)*.23,z=cz+(i<6?-.32:.33);this.box(x,.35,z,.035,.015,.018,[.67,.5,.28]);this.box(x-.04,.35,z,.009,.017,.02,p.metal);this.box(x+.04,.35,z,.009,.017,.02,p.metal);}
+    for(const x of [1.45,1.62]){this.cylinder(x,.405,cz+.28,.055,.075,.055,p.dark);this.cylinder(x,.486,cz+.28,.05,.006,.05,p.metal,"silver");this.box(x,.495,cz+.28,.035,.003,.004,p.dark);}
+    this.box(.15,.37,cz+.13,.07,.028,.065,p.metal);this.cylinder(.15,.414,cz+.13,.036,.02,.036,p.red);
     for(let i=0;i<5;i++){this.box(.27+i*.22,.337,cz-.34,.07,.008,.01,p.silk);this.box(.38+i*.22,.337,cz+.34,.07,.008,.01,p.silk)}
     [[.05,cz-.46],[1.56,cz-.46],[.05,cz+.46],[1.56,cz+.46]].forEach(([x,z])=>this.cylinder(x,.34,z,.045,.015,.045,p.metal,"silver"));
   }
@@ -392,17 +419,23 @@ class DetailedKitRenderer {
     this.box(.08,.24,1.22,.22,.075,.22,p.dark);this.cylinder(.08,.38,1.22,.18,.1,.18,p.red);this.sphere(.08,.48,1.22,.16,.055,.16,p.red);
     this.box(.55,.24,1.2,.2,.075,.2,p.dark);this.cylinder(.55,.4,1.2,.15,.15,.15,p.dark);this.box(.55,.6,1.2,.06,.08,.09,p.metal);
     this.box(1.02,.24,1.2,.21,.075,.21,p.dark);this.cylinder(1.02,.42,1.2,.16,.16,.16,[.15,.16,.15]);this.cylinder(1.02,.61,1.2,.09,.08,.09,p.metal);
+    for(let i=0;i<24;i++){const a=i*Math.PI/12;this.cylinder(1.02+Math.cos(a)*.155,.43,1.2+Math.sin(a)*.155,.012,.13,.012,[.32,.34,.32]);}
+    this.box(1.02,.698,1.16,.014,.004,.055,p.silk);
+    this.box(.08,.59,1.22,.018,.006,.055,p.silk);
     for(let i=0;i<4;i++){const x=-1.5+i*.34;this.box(x,.25,.67,.14,.055,.14,p.silk);this.box(x,.36,.67,.085,.055,.085,p.dark);this.cylinder(x,.43,.67,.055,.025,.055,[.25,.27,.26])}
   }
   drawDisplay(p){
     const cx=1.92,cz=.92;this.box(cx,.25,cz,.62,.075,.5,p.uno,"lcd");this.box(cx,.36,cz,.51,.04,.37,[.58,.65,.54],"lcd-frame");this.box(cx,.415,cz,.42,.012,.28,[.12,.22,.18],"lcd");
-    for(let row=0;row<2;row++)for(let col=0;col<8;col++)this.box(cx-.32+col*.09,.43,cz-.1+row*.13,.025,.007,.04,[.22,.34,.25]);
     [[cx-.5,cz-.38],[cx+.5,cz-.38],[cx-.5,cz+.38],[cx+.5,cz+.38]].forEach(([x,z])=>this.cylinder(x,.37,z,.037,.018,.037,p.metal,"silver"));
     for(let i=0;i<8;i++)this.cylinder(cx-.42+i*.12,.37,cz-.47,.018,.04,.018,p.gold);
   }
   drawModules(p){
     this.cylinder(-.2,.34,-1.3,.2,.13,.2,p.dark);this.cylinder(-.2,.485,-1.3,.13,.02,.13,[.025,.03,.03]);
     this.box(1.98,.24,.05,.48,.065,.26,p.green,"distance");this.cylinder(1.73,.42,.05,.19,.14,.19,p.metal,"distance");this.cylinder(2.23,.42,.05,.19,.14,.19,p.metal,"distance");
+    for(const x of [1.73,2.23]){
+      this.cylinder(x,.566,.05,.155,.006,.155,[.11,.13,.14]);
+      for(let row=-4;row<=4;row++)for(let col=-4;col<=4;col++)if(row*row+col*col<20)this.cylinder(x+col*.03,.575,.05+row*.03,.007,.004,.007,p.metal,"silver");
+    }
     for(let i=0;i<6;i++){const x=-1.95+i*.44;this.box(x,.25,-1.42,.16,.09,.11,i<3?p.red:p.green);this.box(x-.07,.39,-1.42,.03,.035,.03,p.gold);this.box(x+.07,.39,-1.42,.03,.035,.03,p.gold)}
     this.box(1.72,.24,.32,.63,.065,.13,p.socket);for(let i=0;i<9;i++)this.cylinder(1.28+i*.11,.38,.32,.018,.075,.018,p.gold);
     this.box(2.38,.3,.33,.17,.15,.22,p.green,"driver");this.box(2.38,.47,.33,.1,.03,.14,p.chip);
@@ -411,45 +444,19 @@ class DetailedKitRenderer {
     const p={base:[.012,.017,.016],panel:[.035,.043,.041],dark:[.055,.065,.062],hole:[.035,.03,.022],red:[.78,.045,.055],yellow:[.95,.68,.035],blue:[.08,.3,.68],uno:[.025,.28,.52],green:[.035,.36,.16],metal:[.7,.74,.73],gold:[.82,.56,.12],silk:[.86,.88,.84],socket:[.035,.045,.043],chip:[.025,.03,.03],resistor:[.78,.61,.34],lime:[.62,.86,.05],glow:[.78,1,.12]};
     this.drawKitBase(p);this.drawLedBank(p);this.drawBreadboard(p);this.drawUno(p);this.drawControlDeck(p);this.drawDisplay(p);this.drawModules(p);
   }
+  drawSurfaceArt(){
+    this.art.draw(this,'base',0,.153,0,2.76,1.7);
+    this.art.draw(this,'uno',.87,.341,-.66,.94,.62);
+    this.art.draw(this,'chip',.72,.489,-.66,.36,.11);
+    this.art.draw(this,'breadboard',-1.22,.362,-.62,.84,.62);
+    this.art.draw(this,'lcd',1.92,.432,.92,.42,.28);
+    this.art.draw(this,'dial',1.02,.155,1.2,.29,.29);
+    this.gl.useProgram(this.program);
+  }
   draw(){
     const gl=this.gl;if(!gl||!this.canvas.offsetParent)return;const dpr=Math.min(2,devicePixelRatio||1),w=this.canvas.clientWidth||400,h=this.canvas.clientHeight||400;if(this.canvas.width!==Math.floor(w*dpr)||this.canvas.height!==Math.floor(h*dpr)){this.canvas.width=Math.floor(w*dpr);this.canvas.height=Math.floor(h*dpr)}gl.viewport(0,0,this.canvas.width,this.canvas.height);gl.clearColor(0,0,0,0);gl.clearDepth(1);gl.depthMask(true);gl.disable(gl.BLEND);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);gl.frontFace(gl.CCW);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(this.program);if(!state.motionReduced&&!this.drag&&this.canvas.id!=="labCanvas")this.ry+=.00065;
-    this.drawHighDetailModel();if(this.canvas.id==="labCanvas"){this.drawConnections();this.updatePinLabels();this.updateCallouts()}return;
-    const black=[.035,.045,.042],red=[.78,.08,.09],blue=[.04,.27,.5],yellow=[.92,.67,.08],silver=[.68,.72,.7],green=[.09,.35,.18],gold=[.78,.52,.12],dark=[.08,.1,.09],white=[.86,.88,.82];
-    this.box(0,-.035,0,2.79,.11,1.74,[.018,.023,.022],"red-board");this.box(0,.095,0,2.74,.055,1.68,black,"red-board");
-    this.box(0,.155,-1.6,2.68,.018,.025,red);this.box(0,.155,1.6,2.68,.018,.025,red);this.box(-2.67,.155,0,.025,.018,1.53,red);this.box(2.67,.155,0,.025,.018,1.53,red);
-    [[-2.48,-1.42],[2.48,-1.42],[-2.48,1.42],[2.48,1.42]].forEach(([x,z])=>{this.cylinder(x,.17,z,.07,.028,.07,[.48,.5,.49],"silver");this.cylinder(x,.2,z,.025,.012,.025,dark)});
-    /* UNO tabanlı denetleyici: PCB, USB, güç jakı, işlemci, kristal ve pin sıraları. */
-    this.box(-1.46,.24,-.48,.9,.075,.67,blue,"red-board");
-    this.box(-1.49,.37,-.48,.3,.085,.17,dark,"controller");
-    for(let i=0;i<7;i++){this.box(-1.74+i*.085,.465,-.64,.018,.018,.018,silver);this.box(-1.74+i*.085,.465,-.32,.018,.018,.018,silver)}
-    this.box(-2.24,.39,-.72,.25,.16,.25,silver,"usb");this.box(-2.46,.39,-.72,.04,.125,.2,[.32,.35,.34]);
-    this.cylinder(-2.12,.39,.02,.14,.15,.14,dark,"power");this.cylinder(-2.12,.39,.02,.075,.16,.075,[.18,.2,.19]);
-    this.box(-1.02,.36,-.7,.14,.055,.075,silver);this.box(-.98,.37,-.18,.13,.05,.09,[.12,.18,.16]);
-    for(let i=0;i<12;i++){this.box(-2.06+i*.14,.39,-1.02,.052,.08,.04,dark);this.cylinder(-2.06+i*.14,.48,-1.02,.018,.035,.018,gold)}
-    for(let i=0;i<8;i++){this.box(-1.96+i*.14,.39,.08,.052,.08,.04,dark);this.cylinder(-1.96+i*.14,.48,.08,.018,.035,.018,gold)}
-    /* Sarı RED Kit breadboard: güç rayları, orta kanal ve yoğun bağlantı delikleri. */
-    this.box(.18,.24,-.34,.92,.085,.68,yellow,"temp");
-    this.box(.18,.34,-.34,.055,.026,.65,[.72,.46,.04]);
-    this.box(.18,.343,-.93,.82,.01,.012,red);this.box(.18,.343,.25,.82,.01,.012,[.1,.35,.78]);
-    for(let row=0;row<6;row++)for(let col=0;col<14;col++){const x=-.57+col*.115,z=-.78+row*.175;this.cylinder(x,.36,z,.017,.012,.017,dark)}
-    for(let col=0;col<14;col++){const x=-.57+col*.115;this.cylinder(x,.36,-.98,.017,.012,.017,dark);this.cylinder(x,.36,.31,.017,.012,.017,dark)}
-    /* Breadboard üzerindeki LED, direnç ve fiziksel bacaklar. */
-    this.cylinder(.63,.45,-.22,.055,.09,.055,state.sim.led?[1,.22,.08]:[.62,.08,.06],"led");this.sphere(.63,.58,-.22,.075,.11,.075,state.sim.led?[1,.3,.1]:[.62,.08,.06],"led");
-    this.box(.58,.39,-.22,.012,.15,.012,silver);this.box(.69,.39,-.22,.012,.15,.012,silver);
-    this.box(.02,.47,-.22,.25,.045,.045,[.82,.68,.42]);this.box(-.12,.475,-.22,.018,.052,.052,red);this.box(.02,.475,-.22,.018,.052,.052,[.15,.1,.05]);this.box(.16,.475,-.22,.018,.052,.052,gold);
-    this.box(-.34,.43,-.22,.12,.012,.012,silver);this.box(.38,.43,-.22,.12,.012,.012,silver);
-    const colors=[[.86,.08,.08],[.92,.42,.04],[.95,.78,.08],[.22,.7,.2],[.08,.48,.88],[.66,.18,.82]];colors.forEach((c,i)=>{const x=-1.82+i*.26;this.box(x,.25,.66,.11,.035,.11,dark);this.cylinder(x,.35,.66,.07,.07,.07,i===0&&state.sim.led?[.75,1,.3]:c,"led");this.sphere(x,.46,.66,.075,.105,.075,i===0&&state.sim.led?[.82,1,.38]:c,"led");this.box(x,.2,.84,.055,.008,.01,white)});
-    for(let i=0;i<4;i++){this.box(.1+i*.34,.27,.7,.14,.06,.14,white);this.box(.1+i*.34,.37,.7,.085,.055,.085,[.18,.22,.2])}this.cylinder(1.72,.38,.68,.18,.15,.18,[.2,.22,.2],"light");this.box(2.16,.32,.67,.2,.13,.13,red);
-    /* Gerçek RED Kit düzenindeki alt kumandalar ve sağ LCD modülü. */
-    const buttonColors=[[.86,.08,.08],[.95,.72,.04],[.86,.08,.08],[.85,.08,.08]];buttonColors.forEach((c,i)=>{const x=-1.55+i*.48;this.box(x,.27,1.25,.23,.08,.23,dark);this.cylinder(x,.39,1.25,.18,.1,.18,c);this.sphere(x,.48,1.25,.16,.055,.16,c)});
-    this.box(.6,.27,1.22,.22,.08,.22,dark);this.cylinder(.6,.39,1.22,.18,.1,.18,[.75,.08,.08]);this.sphere(.6,.48,1.22,.16,.055,.16,[.82,.1,.08]);
-    this.box(1.15,.27,1.2,.21,.08,.21,dark);this.cylinder(1.15,.43,1.2,.16,.16,.16,[.14,.16,.15]);this.cylinder(1.15,.61,1.2,.09,.08,.09,[.48,.49,.46]);
-    this.box(1.92,.29,.88,.6,.075,.51,blue,"lcd");this.box(1.92,.395,.88,.49,.038,.36,[.55,.63,.5],"lcd-frame");this.box(1.92,.438,.88,.4,.012,.27,[.17,.25,.2],"lcd");
-    [[1.44,.48],[2.4,.48],[1.44,1.28],[2.4,1.28]].forEach(([x,z])=>this.cylinder(x,.405,z,.035,.018,.035,silver,"silver"));
-    this.cylinder(.75,.34,-1.2,.2,.13,.2,[.12,.14,.13]);this.cylinder(.75,.48,-1.2,.13,.02,.13,[.04,.05,.05]);
-    this.cylinder(-2.28,.34,.85,.11,.08,.11,white);this.sphere(-2.28,.46,.85,.1,.09,.1,[.88,.91,.9]);
-    this.box(1.65,.24,-.64,.62,.07,.4,green,"distance");this.cylinder(1.38,.42,-.64,.2,.14,.2,silver,"distance");this.cylinder(1.92,.42,-.64,.2,.14,.2,silver,"distance");
-    for(let i=0;i<7;i++){this.box(-1.8+i*.57,.27,-1.3,.2,.11,.13,i<3?red:green,i===6?"motor":"");this.box(-1.9+i*.57,.39,-1.3,.035,.035,.035,gold)}this.box(1.75,.24,.08,.72,.07,.18,dark);for(let i=0;i<10;i++)this.box(1.15+i*.13,.35,.08,.025,.09,.025,gold);this.box(2.23,.3,-.02,.18,.16,.25,[.08,.16,.12],"driver");
+    this.drawHighDetailModel();
+    this.drawSurfaceArt();
     if(this.canvas.id==="labCanvas"){this.drawConnections();this.updatePinLabels();this.updateCallouts()}
   }
 }
@@ -472,6 +479,14 @@ function loop(time) {
 }
 
 function init() {
+  $("#partFocus").addEventListener("change",event=>{
+    const views={all:[null,6.4],uno:[[.87,.3,-.66],3.1],breadboard:[[-1.22,.3,-.62],2.9],led:[[-2.4,.3,-.3],3.1],controls:[[-.4,.3,1.1],4],lcd:[[1.92,.3,.92],2.5],distance:[[1.98,.3,.05],2.3]};
+    const [focus,zoom]=views[event.target.value];
+    const renderer=renderers.find(r=>r.canvas.id==='labCanvas');if(!renderer)return;
+    renderer.focus=focus;renderer.zoom=zoom;renderer.rx=-1.05;renderer.ry=-.12;
+    state.showCallouts=event.target.value==='all';
+    $("#identifyToggle").classList.toggle('active',state.showCallouts);$("#identifyToggle").setAttribute('aria-pressed',state.showCallouts);
+  });
   const options = allPins.map((p) => `<option value="${p}">${p}</option>`).join(""); $("#pinA").innerHTML = options; $("#pinB").innerHTML = options; $("#pinB").selectedIndex = 1;
   $$('[data-nav]').forEach((button) => button.addEventListener("click", () => setView(button.dataset.nav)));
   $("#continueButton").addEventListener("click", () => setView("lab"));
@@ -486,7 +501,7 @@ function init() {
   $("#nextHint").addEventListener("click", () => { state.hint = (state.hint + 1) % 3; $("#hintText").textContent = currentMission().hints[state.hint]; $("#hintLevel").textContent = `${state.hint + 1}/3`; });
   $("#viewMode").addEventListener("click", () => { state.view3d = !state.view3d; $("#labCanvas").hidden = !state.view3d; $("#fallbackBoard").hidden = state.view3d; $("#viewMode").textContent = state.view3d ? "2D Görünüm" : "3D Görünüm"; });
   $("#guideToggle").addEventListener("click", () => { const list=$("#connectionGuide");list.hidden=!list.hidden;$("#guideToggle").textContent=list.hidden?"Rehberi Aç":"Rehber Açık"; });
-  $("#resetCamera").addEventListener("click", () => renderers.forEach((r) => { r.rx=-.62;r.ry=-.58;r.zoom=6.4; })); $("#topView").addEventListener("click", () => renderers.forEach((r) => { r.rx=-1.48;r.ry=0;r.zoom=6.7; }));
+  $("#resetCamera").addEventListener("click", () => renderers.forEach((r) => { r.focus=null;$("#partFocus").value="all";r.rx=-.62;r.ry=-.58;r.zoom=6.4; })); $("#topView").addEventListener("click", () => renderers.forEach((r) => { r.focus=null;$("#partFocus").value="all";r.rx=-1.48;r.ry=0;r.zoom=6.7; }));
   $("#labelToggle").addEventListener("click", () => { state.showLabels=!state.showLabels;$("#labelToggle").classList.toggle("active",state.showLabels);$("#labelToggle").setAttribute("aria-pressed",state.showLabels);toast(state.showLabels?"Bağlantı etiketleri açıldı.":"Bağlantı etiketleri gizlendi."); });
   $("#identifyToggle").addEventListener("click", () => { state.showCallouts=!state.showCallouts;$("#identifyToggle").classList.toggle("active",state.showCallouts);$("#identifyToggle").setAttribute("aria-pressed",state.showCallouts); });
   $("#autoWire").addEventListener("click", () => { state.connections[state.missionId]=currentMission().connections.map((wire)=>[...wire]);persist();renderWires();toast("Görev bağlantıları fiziksel kablolarla oluşturuldu."); });

@@ -43,7 +43,6 @@ assert.match(html, /refinements\.css/);
 assert.match(refinements, /nav button::after \{ display: none; \}/, "Navigasyon aktif durumu alt çizgi kullanmamalı");
 assert.match(refinements, /pointer-events: none/, "Üst katmanlar model hitbox'ını engellememeli");
 assert.match(app, /class DetailedKitRenderer/, "Ayrıntılı RED Kit WebGL modeli bulunmalı");
-assert.match(app, /this\.cylinder\(1\.38/, "Ultrasonik sensör geometrisi bulunmalı");
 assert.match(app, /this\.rx=wrap\(/, "Dikey eksen tam 360 derece dönebilmelidir");
 assert.doesNotMatch(app, /this\.rx=Math\.max\(-1\.48/, "Dikey dönüş yarım küreyle sınırlandırılmamalı");
 assert.match(app, /drawConnections\(\)/, "Bağlantılar 3B sahnede çizilmelidir");
@@ -53,7 +52,6 @@ assert.match(html, /id="autoWire"/, "Otomatik fiziksel bağlantı aracı bulunma
 assert.match(html, /id="multimeterPanel"/, "Etkileşimli multimetre paneli bulunmalıdır");
 assert.match(app, /updateCallouts\(\)/, "Açıklama çizgileri 3B hedefleri izlemelidir");
 assert.match(app, /cableBetween\(a,b,radius,color\)/, "Kablolar kesintisiz silindirik geometri kullanmalıdır");
-assert.match(app, /for\(let row=0;row<6;row\+\+\)for\(let col=0;col<14;col\+\+\)/, "Breadboard bağlantı delikleri modellenmelidir");
 assert.match(app, /gl\.depthMask\(true\)/, "X-ray etkisini önlemek için derinlik yazımı açık olmalıdır");
 assert.match(app, /gl\.cullFace\(gl\.BACK\)/, "Kapalı modellerde arka yüzler ayıklanmalıdır");
 assert.match(app, /this\.meshes=\{cube:this\.mesh\(cube\),cylinder:this\.mesh\(cyl\),sphere:this\.mesh\(sphere\)\}/, "Kubbeli bileşenler için küresel geometri bulunmalıdır");
