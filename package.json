@@ -1,0 +1,12 @@
+{
+  "name": "canopy-biocore-red-kit",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Canopy BioCore — RED Kit Doğa Laboratuvarı yerel prototipi",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node tools/local-server.mjs",
+    "verify": "node verify.mjs"
+  }
+}

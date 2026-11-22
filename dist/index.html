@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#102a22" />
+  <meta name="description" content="Canopy BioCore — RED Kit ile doğa temalı robotik öğrenme laboratuvarı" />
+  <title>Canopy BioCore — RED Kit Doğa Laboratuvarı</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./refinements.css" />
+  <link rel="stylesheet" href="./kit-studio.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">İçeriğe geç</a>
+  <header class="topbar">
+    <button class="brand" data-nav="home" aria-label="Ana sayfa">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span><strong>CANOPY</strong><small>BIOCORE · RED KIT</small></span>
+    </button>
+    <nav aria-label="Ana gezinme">
+      <button data-nav="home" class="active">Ana Sayfa</button>
+      <button data-nav="missions">Görevler</button>
+      <button data-nav="lab">3D Laboratuvar</button>
+      <button data-nav="kit">Kiti Tanı</button>
+      <button data-nav="journal">Doğa Günlüğüm</button>
+    </nav>
+    <div class="top-actions">
+      <button id="motionToggle" class="icon-btn" aria-pressed="false" title="Hareketi azalt" aria-label="Animasyonları azalt">◌</button>
+      <span id="progressPill" class="progress-pill">0 / 10</span>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section id="homeView" class="view active" aria-labelledby="heroTitle">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <div class="eyebrow"><span></span> ORMAN ARAŞTIRMA İSTASYONU</div>
+          <h1 id="heroTitle">Doğayı keşfet.<br><em>Devreni kur.</em><br>Yaşamı kodla.</h1>
+          <p>RED Kit ile sensörleri tanı, sanal bağlantıları doğrula ve kodunun orman araştırma istasyonundaki etkisini anında gözlemle.</p>
+          <div class="hero-actions">
+            <button class="primary" data-nav="lab">Laboratuvara Gir</button>
+            <button class="secondary" data-nav="missions">Görevleri Keşfet</button>
+            <button class="secondary" data-nav="kit">RED Kit’i Yakından İncele</button>
+          </div>
+          <div class="hero-stats" aria-label="Platform özeti">
+            <span><strong>10</strong><small>Görev</small></span>
+            <span><strong>6</strong><small>Bileşen</small></span>
+            <span><strong>∞</strong><small>Deney</small></span>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="canopy-orb"><canvas id="heroCanvas" aria-label="Dönen temsili RED Kit modeli"></canvas></div>
+          <div class="float-card card-light"><span>☀</span><div><small>ORTAM IŞIĞI</small><strong id="heroLight">62%</strong></div></div>
+          <div class="float-card card-temp"><span>⌁</span><div><small>SICAKLIK</small><strong id="heroTemp">24.0 °C</strong></div></div>
+          <div class="model-label">Yüksek detaylı RED Kit modeli</div>
+        </div>
+      </div>
+      <div class="continue-strip">
+        <div><span class="pulse-dot"></span><div><small>KALDIĞIN YER</small><strong id="continueTitle">BioCore'un İlk Işığı</strong></div></div>
+        <div class="mini-progress"><span id="continueBar"></span></div>
+        <button class="secondary" id="continueButton">Devam Et</button>
+      </div>
+      <section class="flow-section">
+        <div class="section-heading"><span>NASIL ÇALIŞIR?</span><h2>Üç adımda araştırmacı ol</h2></div>
+        <div class="flow-cards">
+          <article><b>01</b><div class="flow-icon">⌁</div><h3>Gözlemle</h3><p>Sensörleri ve RED Kit bileşenlerini yakından tanı.</p></article>
+          <article><b>02</b><div class="flow-icon">⌘</div><h3>Devreni Kur</h3><p>Sanal uçları bağla; sistem bağlantını gerçekten doğrulasın.</p></article>
+          <article><b>03</b><div class="flow-icon">{ }</div><h3>Yaşamı Kodla</h3><p>Kod eşiklerini değiştir ve çevresel sonucu canlı izle.</p></article>
+        </div>
+      </section>
+    </section>
+
+    <section id="missionsView" class="view page-view" aria-labelledby="missionsTitle">
+      <div class="page-heading"><div><span class="eyebrow">SAHA GÖREVLERİ</span><h2 id="missionsTitle">10 araştırma görevi</h2><p>Önerilen sırayla ilerle veya istediğin deneyi serbestçe incele.</p></div><div class="ring" id="missionRing"><strong>0%</strong><small>Tamamlandı</small></div></div>
+      <div id="missionGrid" class="mission-grid"></div>
+    </section>
+
+    <section id="labView" class="view lab-view" aria-labelledby="labTitle">
+      <div class="lab-toolbar">
+        <div><span class="eyebrow">AKTİF GÖREV</span><h2 id="labTitle">BioCore'un İlk Işığı</h2></div>
+        <div class="lab-actions"><button id="viewMode" class="secondary">2D Görünüm</button><button id="guideToggle" class="secondary" aria-pressed="true">Rehber Açık</button></div>
+      </div>
+      <div class="lab-grid">
+        <aside class="panel story-panel">
+          <div class="panel-title"><span>GÖREV BRİFİNGİ</span></div>
+          <p id="missionStory"></p>
+          <dl class="mission-meta"><div><dt>Zorluk</dt><dd id="missionDifficulty"></dd></div><div><dt>Süre</dt><dd id="missionMinutes"></dd></div></dl>
+          <h3>Öğrenme hedefi</h3><p id="missionSkill"></p>
+          <h3>Gerekli bileşenler</h3><div id="componentChips" class="chips"></div>
+          <h3>Bağlantı rehberi</h3><ol id="connectionGuide" class="steps"></ol>
+          <div class="hint-box"><strong>İpucu <span id="hintLevel">1/3</span></strong><p id="hintText"></p><button id="nextHint">Sonraki ipucu</button></div>
+        </aside>
+
+        <section class="workspace-panel">
+          <div class="scene-toolstrip" role="toolbar" aria-label="3B devre araçları">
+            <label class="part-focus">İncele <select id="partFocus" aria-label="Yakından incelenecek parça"><option value="all">Tüm RED Kit</option><option value="uno">UNO ve işlemci</option><option value="breadboard">Boş breadboard</option><option value="led">LED bankası</option><option value="controls">Butonlar ve potansiyometre</option><option value="lcd">LCD ekran</option><option value="distance">Mesafe sensörü</option></select></label>
+            <button id="labelToggle" class="scene-tool active" aria-pressed="true">Etiketler</button>
+            <button id="identifyToggle" class="scene-tool active" aria-pressed="true">Kartı tanı</button>
+            <button id="autoWire" class="scene-tool">Otomatik bağla</button>
+            <button id="clearWires" class="scene-tool">Kabloları sök</button>
+            <button id="multimeterToggle" class="scene-tool" aria-pressed="false">Multimetre</button>
+          </div>
+          <div class="scene-header"><div><span id="connectionStatus" class="status warn">Devre eksik</span><small>Bağlantılar davranışı doğrudan etkiler</small></div><div><button id="resetCamera" class="icon-btn" title="Kamerayı sıfırla">Görünüm</button><button id="topView" class="icon-btn" title="Üstten görünüm">Üstten</button></div></div>
+          <div class="scene-wrap">
+            <canvas id="labCanvas" aria-label="Etkileşimli temsili RED Kit çalışma alanı"></canvas>
+            <div id="fallbackBoard" class="fallback-board" hidden aria-label="Erişilebilir 2D RED Kit şeması">
+              <div class="fb-arduino">ARDUINO<br><small>UYUMLU</small></div>
+              <div class="fb-breadboard"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="fb-ultrasonic"><i></i><i></i></div>
+              <div class="fb-leds"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="fb-buttons"><i></i><i></i><i></i><i></i></div>
+              <div class="fb-label">RED KIT · TEMSİLİ 2D BAĞLANTI TABLASI</div>
+            </div>
+            <div id="pinOverlay" class="pin-overlay" aria-hidden="true"></div>
+            <div id="modelCallouts" class="model-callouts" aria-hidden="true">
+              <svg id="calloutLeaders" class="callout-leaders" preserveAspectRatio="none">
+                <line data-callout-line="digital"></line><line data-callout-line="usb"></line>
+                <line data-callout-line="controller"></line><line data-callout-line="power"></line>
+                <circle data-callout-dot="digital" r="4"></circle><circle data-callout-dot="usb" r="4"></circle>
+                <circle data-callout-dot="controller" r="4"></circle><circle data-callout-dot="power" r="4"></circle>
+              </svg>
+              <article class="model-callout callout-digital" data-callout="digital"><i aria-hidden="true">D</i><div><strong>Dijital pinler</strong><span>D0–D13: giriş, çıkış ve PWM sinyalleri.</span></div></article>
+              <article class="model-callout callout-usb" data-callout="usb"><i aria-hidden="true">USB</i><div><strong>USB</strong><span>Kodu bilgisayardan yükler ve kartı besler.</span></div></article>
+              <article class="model-callout callout-controller" data-callout="controller"><i aria-hidden="true">IC</i><div><strong>ATmega328P</strong><span>16 MHz denetleyici; devrenin karar merkezi.</span></div></article>
+              <article class="model-callout callout-power" data-callout="power"><i aria-hidden="true">V</i><div><strong>Güç ve analog</strong><span>5V, 3.3V, GND ve A0–A5 ölçüm uçları.</span></div></article>
+            </div>
+            <div id="multimeterPanel" class="multimeter-panel" hidden>
+              <span>MULTİMETRE · DC</span><strong id="multimeterValue">5.00 V</strong><small id="multimeterHint">5V ↔ GND ölçümü</small>
+            </div>
+            <div class="model-legend" aria-hidden="true">
+              <span><i></i>Arduino tabanlı kontrol kartı</span>
+              <span><i style="background:#e7b928"></i>Mini breadboard</span>
+              <span><i style="background:#4f7d48"></i>Sensör / çıkış alanı</span>
+              <span id="modelHint"><i style="background:#2f82b7"></i>Model üzerindeki iki uca tıklayarak bağla</span>
+            </div>
+            <div class="scene-readouts"><span>LED <b id="ledState">KAPALI</b></span><span>FAN <b id="fanState">KAPALI</b></span><span>GEÇİŞ <b id="countState">0</b></span><span class="signal-note">Hareketli nokta: mantıksal sinyal</span></div>
+          </div>
+          <div class="wire-builder">
+            <label>Başlangıç ucu<select id="pinA"></select></label><span>—</span><label>Hedef uç<select id="pinB"></select></label><button id="addWire" class="primary">Bağla</button><button id="undoWire" class="secondary">Geri Al</button>
+          </div>
+          <div id="wireList" class="wire-list" aria-live="polite"></div>
+        </section>
+
+        <aside class="panel controls-panel">
+          <div class="panel-title"><span>ORTAM KONTROLLERİ</span></div>
+          <label class="range-row"><span><b>Ortam ışığı</b><output id="lightOutput">62%</output></span><input id="lightRange" type="range" min="0" max="100" value="62"></label>
+          <label class="range-row"><span><b>Sıcaklık</b><output id="tempOutput">24.0 °C</output></span><input id="tempRange" type="range" min="5" max="45" step="0.5" value="24"></label>
+          <label class="range-row"><span><b>Mesafe</b><output id="distanceOutput">80 cm</output></span><input id="distanceRange" type="range" min="5" max="150" value="80"></label>
+          <canvas id="chartCanvas" class="chart" width="320" height="150" aria-label="Son sensör değerleri grafiği"></canvas>
+          <div class="component-info"><small>SEÇİLİ BİLEŞEN</small><h3 id="selectedComponent">RED Kit Kontrol Kartı</h3><p id="selectedDescription">Etkileşimli, kapalı yüzeyli 3B donanım modeli.</p><span class="verify-tag">Doğrulanacak</span></div>
+        </aside>
+
+        <section id="moduleLibrary" class="module-library" aria-label="Göreve eklenebilir sensörler"></section>
+        <section class="code-panel">
+          <div class="execution-toolbar"><strong>Canlı kod akışı</strong><span id="executionClock">0 ms</span><label>Hız <select id="executionSpeed"><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label><button id="restartExecution" class="secondary">Yürütmeyi sıfırla</button></div>
+          <div class="execution-panel">
+            <div id="executionCode" class="execution-code" aria-label="Yürütülen kod ve etkin satır"></div>
+            <div class="execution-detail"><p id="executionStatus" role="status">Devreni bağla, ardından Çalıştır veya Adım seç.</p><div class="flow-stages" aria-label="Kod akışı"><span data-flow="compute">Oku / hesapla</span><span data-flow="output">Çıkışı değiştir</span><span data-flow="wait">Bekle</span><span data-flow="serial">Seri çıktı</span></div><output id="flowReadout">LED LOW · Fan KAPALI</output><canvas id="signalTrace" class="signal-trace" aria-label="LED çıkışının zamana göre HIGH ve LOW durumu"></canvas><div id="variableWatch" class="variable-watch" aria-label="Değişken değerleri"></div><small>Vurgulanan satır gerçekten yürütülür. Adım, bekleme süresini ilerletir. Desteklenen eğitim kodları: değişkenler, if/else, loop, digitalWrite, delay ve sensör okumaları.</small></div>
+          </div>
+          <div class="code-tabs"><button class="active" data-code-tab="editor">Kod Editörü</button><button data-code-tab="serial">Seri Monitör</button><button data-code-tab="tests">Test Sonuçları</button><span>Eğitim amaçlı güvenli yorumlayıcı</span></div>
+          <div id="editorPane" class="code-pane active"><div class="line-numbers" id="lineNumbers"></div><textarea id="codeEditor" spellcheck="false" aria-label="Arduino görünümünde kod editörü"></textarea></div>
+          <pre id="serialPane" class="code-pane terminal" aria-live="polite"></pre>
+          <div id="testsPane" class="code-pane test-results"></div>
+          <div class="runbar"><div><button id="runButton" class="primary">Çalıştır</button><button id="stopButton" class="secondary">Durdur</button><button id="stepButton" class="secondary">Adım</button></div><div><button id="checkCircuit" class="secondary">Devreyi Kontrol Et</button><button id="runTests" class="accent">Testleri Çalıştır</button><button id="resetMission" class="ghost">Başlangıca Dön</button></div></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="kitView" class="view page-view" aria-labelledby="kitTitle">
+      <div class="page-heading"><div><span class="eyebrow">DONANIM ATLASI</span><h2 id="kitTitle">RED Kit'i tanı</h2><p>Kendi kitinin parçalarını, fotoğraflardaki yerleşimiyle keşfet.</p></div></div>
+      <div class="reference-kit-tools"><label>Parça <select id="referenceFocus"><option value="all">Tüm RED Kit</option><option value="uno">Arduino UNO</option><option value="breadboard">Kırmızı breadboard</option><option value="led">LED dizisi</option><option value="controls">Buton, anahtar ve pot</option><option value="lcd">LCD ekran</option></select></label><button id="referenceTop" class="secondary">Üstten</button><button id="referenceAngle" class="secondary">Çapraz</button><button id="referenceRotate" class="secondary" aria-pressed="false">Otomatik döndür</button><button id="referenceAccessories" class="secondary" aria-pressed="false">Aksesuarları göster</button><button id="referenceZoomIn" class="secondary" aria-label="Yakınlaştır">+</button><button id="referenceZoomOut" class="secondary" aria-label="Uzaklaştır">−</button><button id="referencePhotoToggle" class="secondary" aria-expanded="false">Referans fotoğraf</button></div>
+      <div class="reference-model-stage"><canvas id="kitCanvas" tabindex="0" aria-label="Fotoğraflara göre yeniden çizilmiş RED Kit 3B modeli. Ok tuşlarıyla döndürün."></canvas><p>Sürükleyerek veya ok tuşlarıyla döndür · Tekerlekle yakınlaştır</p><span id="referenceCaption">Fotoğraf referanslı model · üst yüz ve yan profil</span></div>
+      <div class="reference-demo"><button id="referenceLedDemo" class="secondary" aria-pressed="false">LED’i yak</button><label>Potansiyometre <input id="referenceKnob" type="range" min="-140" max="140" value="0"><output id="referenceKnobValue">0°</output></label><span>Görsel parça gösterimi</span></div>
+      <figure id="referencePhoto" hidden><img src="./reference-kit.jpeg" alt="Kullanıcının üstten çektiği gerçek RED Kit: siyah tabla, kırmızı breadboard, sağda UNO ve LCD, solda LED ve butonlar." loading="lazy"><figcaption>Modelin yerleşimi için kullanılan gerçek kit fotoğrafı.</figcaption></figure>
+      <p class="reference-model-note">22 Kasım’da paylaşılan fotoğrafların yerleşimi ve renkleri esas alındı. Kesin ölçüler ve görünmeyen alt devre doğrulanmadı. Aksesuar görünümü ayrı parçaların keşif düzenidir.</p>
+      <details><summary>Bileşenler ve eğitim bağlantıları</summary><div id="hardwareList" class="hardware-list"></div></details>
+      <div class="notice"><strong>Donanım doğruluğu notu</strong><p id="hardwareNotice"></p></div>
+    </section>
+
+    <section id="journalView" class="view page-view" aria-labelledby="journalTitle">
+      <div class="page-heading"><div><span class="eyebrow">DOĞA GÜNLÜĞÜM</span><h2 id="journalTitle">Araştırma kaydın</h2><p>İlerleme bu tarayıcıda yerel olarak saklanır.</p></div><button id="resetProgress" class="danger">İlerlemeyi Sıfırla</button></div>
+      <div class="journal-grid"><article><small>TAMAMLANAN</small><strong id="completedCount">0 / 10</strong><div class="big-progress"><span id="journalBar"></span></div></article><article><small>KAZANILAN BECERİLER</small><div id="skillList" class="chips"></div></article><article><small>ROZETLER</small><div id="badgeList" class="badges"></div></article></div>
+      <section class="notes-card"><h3>Deney notlarım</h3><textarea id="journalNotes" placeholder="Gözlemlerini ve yeni deney fikirlerini buraya yaz..."></textarea><small>Otomatik olarak yerel kaydedilir.</small></section>
+      <div id="journalMissions" class="journal-missions"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
